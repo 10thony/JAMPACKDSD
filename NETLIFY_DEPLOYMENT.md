@@ -8,6 +8,7 @@ This project has been configured for deployment to Netlify with instant static p
 
 - **netlify.toml**: Added build configuration with build command and publish directory
 - **public/_redirects**: Added client-side routing support (redirects all routes to index.html)
+- **Secrets Scanning**: Configured to allow frontend environment variables (VITE_*) that are meant to be public
 
 ### 2. Static HTML Snapshot
 
@@ -30,12 +31,18 @@ The static content automatically hides once the React app is mounted.
 
 You'll need to set these in Netlify dashboard:
 
-**Netlify Environment Variables:**
-- `VITE_CLERK_PUBLISHABLE_KEY`
-- `VITE_CLERK_DOMAIN`
-- `VITE_CONVEX_URL`
+**Netlify Environment Variables (Frontend - Public Keys):**
+These are intentionally exposed to the client and safe to use in the browser:
+- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk's public key for authentication UI
+- `VITE_CLERK_DOMAIN` - Your Clerk domain
+- `VITE_CONVEX_URL` - Your Convex deployment URL
+- `VITE_UPLOADTHING_TOKEN` - Uploadthing public token
+- `VITE_UPLOADTHING_URL` - Uploadthing URL (optional)
 
-**Convex Dashboard Variables:**
+⚠️ **Note**: The `netlify.toml` includes `SECRETS_SCAN_OMIT_KEYS` to tell Netlify that these VITE_ variables are expected to be in the build output. They're frontend keys meant to be public.
+
+**Convex Dashboard Variables (Backend - Secret Keys):**
+These are server-side only and set in Convex dashboard:
 - `CLERK_APPLICATION_ID`
 - `CLERK_PRIVATE_KEY`
 - `CLERK_JWKS_URL`

@@ -14,8 +14,6 @@
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "8"
-
-# Functions (if needed in the future)
-[functions]
-  directory = "netlify/functions"
+  # Tell Netlify to skip scanning these keys as they're meant to be public (frontend keys)
+  SECRETS_SCAN_OMIT_KEYS = "VITE_CLERK_PUBLISHABLE_KEY,VITE_CLERK_DOMAIN,VITE_CONVEX_URL,VITE_UPLOADTHING_TOKEN,VITE_UPLOADTHING_URL"
 
