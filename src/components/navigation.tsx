@@ -1,10 +1,13 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Settings, LogIn } from "lucide-react"
 import { UserButton, SignInButton, useUser } from "@clerk/clerk-react"
+import { QuoteIntakeModal } from "./quote-intake-modal"
 
 export function Navigation() {
   const { isSignedIn } = useUser()
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false)
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-sm">
@@ -21,9 +24,12 @@ export function Navigation() {
             <a href="#about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               About
             </a>
-            <a href="#contact" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <button 
+              onClick={() => setQuoteModalOpen(true)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               Contact
-            </a>
+            </button>
             
             {isSignedIn ? (
               <>
@@ -46,6 +52,11 @@ export function Navigation() {
           </div>
         </div>
       </div>
+      
+      <QuoteIntakeModal 
+        open={quoteModalOpen} 
+        onOpenChange={setQuoteModalOpen} 
+      />
     </nav>
   )
 }

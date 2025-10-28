@@ -1,5 +1,6 @@
 import { ProjectManager } from "@/components/project-manager"
 import { ProjectQuoteManager } from "@/components/project-quote-manager"
+import { QuoteSubmissionsManager } from "@/components/quote-submissions-manager"
 import { SnakeGameSettings } from "@/components/snake-game-settings"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,10 @@ export default function Admin() {
           <p className="text-muted-foreground">Add and manage your portfolio projects</p>
         </div>
 
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="lg:col-span-2">
+            <QuoteSubmissionsManager />
+          </div>
           <ProjectManager />
           <ProjectQuoteManager />
           <SnakeGameSettings />

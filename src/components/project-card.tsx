@@ -1,4 +1,3 @@
-import { useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { ExternalLink, Github } from "lucide-react"
 import { InlineProjectManager } from "./inline-project-manager"
@@ -9,33 +8,9 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   const projectUrl = project.liveUrl || project.githubUrl
-  const cardRef = useRef<HTMLDivElement>(null)
-  const rotationRef = useRef(0)
-  const [spinCount, setSpinCount] = useState(0)
-
-  const handleRightClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    
-    if (!cardRef.current) return
-    
-    // Increment rotation
-    rotationRef.current += 360
-    
-    // Calculate duration - each click makes it faster (min 0.1s)
-    const duration = Math.max(0.1, 1 - (spinCount * 0.1))
-    
-    // Apply the animation
-    cardRef.current.style.transition = `transform ${duration}s linear`
-    cardRef.current.style.transform = `rotate(${rotationRef.current}deg)`
-    
-    // Update spin count
-    setSpinCount(prev => prev + 1)
-  }
 
   return (
     <Card 
-      ref={cardRef}
-      onContextMenu={handleRightClick}
       className="group overflow-hidden border-border/50 hover:border-border transition-all duration-300 relative"
     >
       <InlineProjectManager project={project} />

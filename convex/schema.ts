@@ -58,4 +58,15 @@ export default defineSchema({
       last4: v.string(),
     })),
   }).index("by_user", ["userId"]).index("by_stripe_customer", ["stripeCustomerId"]),
+  
+  // Quote intake submissions
+  quote_submissions: defineTable({
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    serviceDescription: v.string(),
+    projectPackage: v.optional(v.string()),
+    createdAt: v.number(),
+    read: v.boolean(),
+  }).index("by_created_at", ["createdAt"]).index("by_read", ["read"]),
 });

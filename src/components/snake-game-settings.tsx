@@ -49,7 +49,7 @@ export function SnakeGameSettings() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="row">Row (0-{gridSize.rows - 1})</Label>
             <Input
               id="row"
@@ -62,7 +62,7 @@ export function SnakeGameSettings() {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="col">Column (0-{gridSize.cols - 1})</Label>
             <Input
               id="col"

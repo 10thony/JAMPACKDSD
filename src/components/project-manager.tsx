@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
-import { Plus, Trash2, ExternalLink } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Edit } from "lucide-react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../convex/_generated/api"
 import { useUser } from "@clerk/clerk-react"
@@ -15,9 +16,11 @@ export function ProjectManager() {
   const { isSignedIn } = useUser()
   const projects = useQuery(api.queries.getProjects) || []
   const addProject = useMutation(api.mutations.addProject)
+  const updateProject = useMutation(api.mutations.updateProject)
   const deleteProject = useMutation(api.mutations.deleteProject)
   
   const [isAdding, setIsAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -41,15 +44,31 @@ export function ProjectManager() {
       .map((tech) => tech.trim())
       .filter(Boolean)
 
-    await addProject({
-      title: formData.title,
-      description: formData.description,
-      technologies,
-      githubUrl: formData.githubUrl || undefined,
-      liveUrl: formData.liveUrl || undefined,
-      featured: formData.featured,
-      order: formData.order,
-    })
+    if (editingId) {
+      // Update existing project
+      await updateProject({
+        id: editingId as any,
+        title: formData.title,
+        description: formData.description,
+        technologies,
+        githubUrl: formData.githubUrl || undefined,
+        liveUrl: formData.liveUrl || undefined,
+        featured: formData.featured,
+        order: formData.order,
+      })
+      setEditingId(null)
+    } else {
+      // Add new project
+      await addProject({
+        title: formData.title,
+        description: formData.description,
+        technologies,
+        githubUrl: formData.githubUrl || undefined,
+        liveUrl: formData.liveUrl || undefined,
+        featured: formData.featured,
+        order: formData.order,
+      })
+    }
 
     setFormData({ 
       title: "", 
@@ -61,6 +80,20 @@ export function ProjectManager() {
       order: 0 
     })
     setIsAdding(false)
+  }
+
+  function handleEdit(project: any) {
+    setFormData({
+      title: project.title || "",
+      description: project.description || "",
+      technologies: project.technologies?.join(", ") || "",
+      githubUrl: project.githubUrl || "",
+      liveUrl: project.liveUrl || "",
+      featured: project.featured || false,
+      order: project.order || 0,
+    })
+    setEditingId(project._id)
+    setIsAdding(true)
   }
 
   async function handleDelete(id: string) {
@@ -161,13 +194,23 @@ export function ProjectManager() {
               />
             </div>
 
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="featured"
+                checked={formData.featured}
+                onCheckedChange={(checked) => setFormData({ ...formData, featured: checked as boolean })}
+              />
+              <Label htmlFor="featured" className="font-normal">Featured Project</Label>
+            </div>
+
             <div className="flex gap-2">
-              <Button type="submit">Add Project</Button>
+              <Button type="submit">{editingId ? "Update Project" : "Add Project"}</Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setIsAdding(false)
+                  setEditingId(null)
                   setFormData({ title: "", description: "", technologies: "", githubUrl: "", liveUrl: "", featured: false, order: 0 })
                 }}
               >
@@ -221,15 +264,25 @@ export function ProjectManager() {
                     )}
                   </div>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(project._id)}
-                    className="text-destructive hover:text-destructive"
-                    disabled={!isSignedIn}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(project)}
+                      disabled={!isSignedIn}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(project._id)}
+                      className="text-destructive hover:text-destructive"
+                      disabled={!isSignedIn}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}

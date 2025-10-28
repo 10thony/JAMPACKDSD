@@ -161,3 +161,60 @@ export const updateHomepageLabel = mutation({
     }
   },
 });
+
+// Add a quote submission (public - no auth required)
+export const addQuoteSubmission = mutation({
+  args: {
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    serviceDescription: v.string(),
+    projectPackage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("quote_submissions", {
+      ...args,
+      createdAt: Date.now(),
+      read: false,
+    });
+  },
+});
+
+// Mark a quote submission as read (admin only)
+export const markQuoteSubmissionRead = mutation({
+  args: {
+    id: v.id("quote_submissions"),
+  },
+  handler: async (ctx, args) => {
+    await checkAuthorization(ctx);
+    return await ctx.db.patch(args.id, { read: true });
+  },
+});
+
+// Delete a quote submission (admin only)
+export const deleteQuoteSubmission = mutation({
+  args: {
+    id: v.id("quote_submissions"),
+  },
+  handler: async (ctx, args) => {
+    await checkAuthorization(ctx);
+    return await ctx.db.delete(args.id);
+  },
+});
+
+// Reorder project quotes
+export const reorderProjectQuotes = mutation({
+  args: {
+    quoteIds: v.array(v.id("project_quotes")),
+  },
+  handler: async (ctx, args) => {
+    await checkAuthorization(ctx);
+    
+    // Update each quote's order based on its position in the array
+    const updates = args.quoteIds.map((id, index) => 
+      ctx.db.patch(id, { order: index })
+    );
+    
+    await Promise.all(updates);
+  },
+});

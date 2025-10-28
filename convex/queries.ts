@@ -85,3 +85,20 @@ export const getHomepageLabels = query({
     }, {} as Record<string, string>);
   },
 });
+
+// Get all quote submissions (admin only)
+export const getQuoteSubmissions = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== AUTHORIZED_USER_ID) {
+      throw new Error("Unauthorized");
+    }
+    
+    return await ctx.db
+      .query("quote_submissions")
+      .withIndex("by_created_at")
+      .order("desc")
+      .collect();
+  },
+});

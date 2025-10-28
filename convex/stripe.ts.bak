@@ -1,13 +1,20 @@
-import { action } from "./_generated/server";
+import { action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
-});
+// Initialize Stripe lazily to avoid errors when STRIPE_SECRET_KEY is not set
+function getStripe() {
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+  return new Stripe(apiKey, {
+    apiVersion: "2025-09-30.clover",
+  });
+}
 
 // Generate checkout session
-export const generateCheckout = action({
+export const generateCheckout = internalMutation({
   args: {
     priceId: v.string(),
     successUrl: v.string(),
@@ -31,6 +38,7 @@ export const generateCheckout = action({
       customerId = existing.stripeCustomerId;
     } else {
       // Create new Stripe customer
+      const stripe = getStripe();
       const customer = await stripe.customers.create({
         email: identity.email,
         metadata: {
@@ -50,6 +58,7 @@ export const generateCheckout = action({
     }
 
     // Create checkout session
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       success_url: args.successUrl,
@@ -68,7 +77,7 @@ export const generateCheckout = action({
 });
 
 // Sync Stripe data to database
-export const syncStripeData = action({
+export const syncStripeData = internalMutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -87,6 +96,7 @@ export const syncStripeData = action({
     }
 
     // Fetch latest subscription data from Stripe
+    const stripe = getStripe();
     const subscriptions = await stripe.subscriptions.list({
       customer: stripeData.stripeCustomerId,
       limit: 1,
@@ -141,6 +151,7 @@ export const stripeWebhook = action({
     body: v.string(),
   },
   handler: async (ctx, args) => {
+    const stripe = getStripe();
     const event = stripe.webhooks.constructEvent(
       args.body,
       args.signature,
@@ -181,7 +192,8 @@ export const stripeWebhook = action({
     }
 
     // Fetch latest subscription data
-    const subscriptions = await stripe.subscriptions.list({
+    const stripeInstance = getStripe();
+    const subscriptions = await stripeInstance.subscriptions.list({
       customer: customerId,
       limit: 1,
       status: "all",
@@ -229,7 +241,7 @@ export const stripeWebhook = action({
 });
 
 // Get subscription status
-export const getSubscriptionStatus = action({
+export const getSubscriptionStatus = internalMutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
