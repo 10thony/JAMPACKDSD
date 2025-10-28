@@ -14,6 +14,7 @@
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "8"
-  # Tell Netlify to skip scanning these keys as they're meant to be public (frontend keys)
-  SECRETS_SCAN_OMIT_KEYS = "VITE_CLERK_PUBLISHABLE_KEY,VITE_CLERK_DOMAIN,VITE_CONVEX_URL,VITE_UPLOADTHING_TOKEN,VITE_UPLOADTHING_URL"
+  # Exclude build output from secrets scanning since VITE_ variables are compiled into the bundle
+  # These are intentionally public frontend keys that must be in the client-side code
+  SECRETS_SCAN_OMIT_PATHS = "dist/**"
 

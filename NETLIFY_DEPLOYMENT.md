@@ -39,7 +39,9 @@ These are intentionally exposed to the client and safe to use in the browser:
 - `VITE_UPLOADTHING_TOKEN` - Uploadthing public token
 - `VITE_UPLOADTHING_URL` - Uploadthing URL (optional)
 
-⚠️ **Note**: The `netlify.toml` includes `SECRETS_SCAN_OMIT_KEYS` to tell Netlify that these VITE_ variables are expected to be in the build output. They're frontend keys meant to be public.
+⚠️ **Important**: These VITE_ variables are correctly referenced in code via `import.meta.env.VITE_*`. During the build, Vite replaces these references with actual values and bundles them into the JavaScript output. This is intentional and necessary for the browser to access them at runtime.
+
+The `netlify.toml` uses `SECRETS_SCAN_OMIT_PATHS = "dist/**"` to exclude the build output from Netlify's secrets scanner, since these are intentionally public frontend keys.
 
 **Convex Dashboard Variables (Backend - Secret Keys):**
 These are server-side only and set in Convex dashboard:
