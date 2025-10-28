@@ -5,9 +5,12 @@ import { Settings, LogIn } from "lucide-react"
 import { UserButton, SignInButton, useUser } from "@clerk/clerk-react"
 import { QuoteIntakeModal } from "./quote-intake-modal"
 
+const AUTHORIZED_USER_ID = "user_2yeq7o5pXddjNeLFDpoz5tTwkWS"
+
 export function Navigation() {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, user } = useUser()
   const [quoteModalOpen, setQuoteModalOpen] = useState(false)
+  const isAuthorized = user?.id === AUTHORIZED_USER_ID
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-sm">
@@ -33,12 +36,14 @@ export function Navigation() {
             
             {isSignedIn ? (
               <>
-                <Link to="/admin">
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Settings className="h-4 w-4" />
-                    <span className="sr-only">Admin Settings</span>
-                  </Button>
-                </Link>
+                {isAuthorized && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Settings className="h-4 w-4" />
+                      <span className="sr-only">Admin Settings</span>
+                    </Button>
+                  </Link>
+                )}
                 <UserButton afterSignOutUrl="/" />
               </>
             ) : (
