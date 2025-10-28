@@ -1,0 +1,258 @@
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-12-18.acacia",
+});
+
+// Generate checkout session
+export const generateCheckout = action({
+  args: {
+    priceId: v.string(),
+    successUrl: v.string(),
+    cancelUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get or create stripe customer
+    const existing = await ctx.db
+      .query("stripe_data")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    let customerId: string;
+    
+    if (existing) {
+      customerId = existing.stripeCustomerId;
+    } else {
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: identity.email,
+        metadata: {
+          userId: identity.subject,
+        },
+      });
+
+      // Store the relation
+      await ctx.db.insert("stripe_data", {
+        userId: identity.subject,
+        stripeCustomerId: customer.id,
+        status: "none",
+        cancelAtPeriodEnd: false,
+      });
+
+      customerId = customer.id;
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+      mode: "subscription",
+      line_items: [
+        {
+          price: args.priceId,
+          quantity: 1,
+        },
+      ],
+    });
+
+    return { url: session.url };
+  },
+});
+
+// Sync Stripe data to database
+export const syncStripeData = action({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get stripe customer ID
+    const stripeData = await ctx.db
+      .query("stripe_data")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!stripeData) {
+      return { status: "none" };
+    }
+
+    // Fetch latest subscription data from Stripe
+    const subscriptions = await stripe.subscriptions.list({
+      customer: stripeData.stripeCustomerId,
+      limit: 1,
+      status: "all",
+      expand: ["data.default_payment_method"],
+    });
+
+    let subData;
+    
+    if (subscriptions.data.length === 0) {
+      subData = {
+        subscriptionId: null,
+        status: "none",
+        priceId: null,
+        currentPeriodEnd: null,
+        currentPeriodStart: null,
+        cancelAtPeriodEnd: false,
+        paymentMethod: null,
+      };
+    } else {
+      const subscription = subscriptions.data[0];
+      
+      subData = {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        priceId: subscription.items.data[0].price.id,
+        currentPeriodStart: subscription.current_period_start,
+        currentPeriodEnd: subscription.current_period_end,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        paymentMethod:
+          subscription.default_payment_method &&
+          typeof subscription.default_payment_method !== "string"
+            ? {
+                brand: subscription.default_payment_method.card?.brand ?? "unknown",
+                last4: subscription.default_payment_method.card?.last4 ?? "",
+              }
+            : null,
+      };
+    }
+
+    // Update the database
+    await ctx.db.patch(stripeData._id, subData);
+    
+    return subData;
+  },
+});
+
+// Stripe webhook handler
+export const stripeWebhook = action({
+  args: {
+    signature: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const event = stripe.webhooks.constructEvent(
+      args.body,
+      args.signature,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
+
+    // List of events to handle
+    const allowedEvents = [
+      "checkout.session.completed",
+      "customer.subscription.created",
+      "customer.subscription.updated",
+      "customer.subscription.deleted",
+      "invoice.paid",
+      "invoice.payment_failed",
+    ];
+
+    if (!allowedEvents.includes(event.type)) {
+      return { received: true };
+    }
+
+    // Get customer ID from event
+    const customerId = (event.data.object as any).customer;
+    
+    if (!customerId || typeof customerId !== "string") {
+      console.error("[STRIPE HOOK] No customer ID in event", event.type);
+      return { received: true };
+    }
+
+    // Find the user for this customer
+    const stripeData = await ctx.db
+      .query("stripe_data")
+      .withIndex("by_stripe_customer", (q) => q.eq("stripeCustomerId", customerId))
+      .first();
+
+    if (!stripeData) {
+      console.error("[STRIPE HOOK] No user found for customer", customerId);
+      return { received: true };
+    }
+
+    // Fetch latest subscription data
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      limit: 1,
+      status: "all",
+      expand: ["data.default_payment_method"],
+    });
+
+    let subData;
+    
+    if (subscriptions.data.length === 0) {
+      subData = {
+        subscriptionId: null,
+        status: "none",
+        priceId: null,
+        currentPeriodEnd: null,
+        currentPeriodStart: null,
+        cancelAtPeriodEnd: false,
+        paymentMethod: null,
+      };
+    } else {
+      const subscription = subscriptions.data[0];
+      
+      subData = {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        priceId: subscription.items.data[0].price.id,
+        currentPeriodStart: subscription.current_period_start,
+        currentPeriodEnd: subscription.current_period_end,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        paymentMethod:
+          subscription.default_payment_method &&
+          typeof subscription.default_payment_method !== "string"
+            ? {
+                brand: subscription.default_payment_method.card?.brand ?? "unknown",
+                last4: subscription.default_payment_method.card?.last4 ?? "",
+              }
+            : null,
+      };
+    }
+
+    // Update the database
+    await ctx.db.patch(stripeData._id, subData);
+    
+    return { received: true };
+  },
+});
+
+// Get subscription status
+export const getSubscriptionStatus = action({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripeData = await ctx.db
+      .query("stripe_data")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!stripeData || stripeData.status === "none") {
+      return { status: "none" };
+    }
+
+    return {
+      status: stripeData.status,
+      priceId: stripeData.priceId,
+      currentPeriodEnd: stripeData.currentPeriodEnd,
+      cancelAtPeriodEnd: stripeData.cancelAtPeriodEnd,
+      paymentMethod: stripeData.paymentMethod,
+    };
+  },
+});
+

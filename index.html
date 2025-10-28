@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/placeholder-logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>J.A.M Packed SD</title>
+    <meta name="description" content="Professional web development and design services. Crafting digital experiences with precision and care." />
+    <meta name="keywords" content="web development, web design, digital experiences, San Diego, J.A.M Packed" />
+    <meta name="author" content="J.A.M Packed SD" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="J.A.M Packed SD" />
+    <meta property="og:description" content="Professional web development and design services. Crafting digital experiences with precision and care." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="J.A.M Packed SD" />
+    <meta name="twitter:description" content="Professional web development and design services. Crafting digital experiences with precision and care." />
+    
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: #1a1423;
+        color: #eacdc2;
+        line-height: 1.5;
+      }
+      
+      .static-content {
+        min-height: 100vh;
+      }
+      
+      .static-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        border-bottom: 1px solid rgba(69, 54, 93, 0.4);
+        background: rgba(26, 20, 35, 0.8);
+        backdrop-filter: blur(8px);
+      }
+      
+      .static-nav-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      
+      .static-nav-link {
+        font-size: 1.125rem;
+        font-weight: 500;
+        text-decoration: none;
+        color: #eacdc2;
+      }
+      
+      .static-nav-menu {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+      
+      .static-nav-item {
+        font-size: 0.875rem;
+        color: #b58b9f;
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      
+      .static-nav-item:hover {
+        color: #eacdc2;
+      }
+      
+      .static-main {
+        padding-top: 5rem;
+      }
+      
+      .static-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+      }
+      
+      .static-hero {
+        padding: 8rem 0 5rem;
+        max-width: 48rem;
+      }
+      
+      .static-hero-brand {
+        font-size: 0.875rem;
+        color: #b58b9f;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 1rem;
+      }
+      
+      .static-hero-heading {
+        font-size: 3rem;
+        font-weight: 300;
+        letter-spacing: -0.02em;
+        margin-bottom: 1.5rem;
+        line-height: 1.1;
+      }
+      
+      @media (max-width: 768px) {
+        .static-hero-heading {
+          font-size: 2rem;
+        }
+      }
+      
+      .static-hero-desc {
+        font-size: 1.125rem;
+        color: #b58b9f;
+        max-width: 42rem;
+        line-height: 1.6;
+      }
+      
+      .static-section {
+        padding: 2.5rem 0;
+        background: rgba(34, 23, 45, 0.3);
+        border-radius: 0.5rem;
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+      }
+      
+      .static-section-heading {
+        font-size: 0.875rem;
+        color: #b58b9f;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 3rem;
+      }
+      
+      .static-grid {
+        display: grid;
+        gap: 2rem;
+      }
+      
+      .static-grid-3 {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      
+      .static-grid-2 {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      }
+      
+      .static-card {
+        background: #22172d;
+        border: 1px solid rgba(69, 54, 93, 0.5);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        transition: transform 0.2s;
+      }
+      
+      .static-card:hover {
+        transform: translateY(-2px);
+      }
+      
+      .static-card-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      
+      .static-card-price {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #af8cbd;
+        margin-bottom: 1rem;
+      }
+      
+      .static-feature {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      
+      .static-feature-text {
+        font-size: 0.875rem;
+        color: #b58b9f;
+      }
+      
+      .static-project-image {
+        width: 100%;
+        aspect-ratio: 16/10;
+        background: #2f1e26;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+      }
+      
+      .static-project-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .static-project-title {
+        font-size: 1.25rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+      }
+      
+      .static-featured-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: #af8cbd;
+        color: #1a1423;
+        border-radius: 0.375rem;
+        display: inline-block;
+        margin-left: 0.5rem;
+      }
+      
+      .static-tech-tag {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: #2f1e26;
+        color: #b58b9f;
+        border-radius: 0.375rem;
+        display: inline-block;
+        margin-right: 0.5rem;
+        margin-bottom: 0.25rem;
+      }
+      
+      .hidden {
+        display: none;
+      }
+      
+      @media (max-width: 768px) {
+        .static-grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .static-grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Static content - shows immediately while React loads -->
+    <div class="static-content" id="static-content">
+      <nav class="static-nav">
+        <div class="static-nav-container">
+          <a href="/" class="static-nav-link">J.A.M Packed SD</a>
+          <div class="static-nav-menu">
+            <a href="#work" class="static-nav-item">Work</a>
+            <a href="#about" class="static-nav-item">About</a>
+            <a href="#contact" class="static-nav-item">Contact</a>
+            <a href="#" class="static-nav-item">Sign In</a>
+          </div>
+        </div>
+      </nav>
+      
+      <main class="static-main">
+        <div class="static-container">
+          <section class="static-hero">
+            <p class="static-hero-brand">J.A.M Packed SD</p>
+            <h1 class="static-hero-heading">Crafting digital experiences with precision and care</h1>
+            <p class="static-hero-desc">
+              Professional web development and design services based in San Antonio Texas. I build accessible, pixel-perfect digital experiences for the web, specializing in modern web technologies and thoughtful design systems.
+            </p>
+          </section>
+          
+          <section class="static-section" id="services">
+            <div class="static-container">
+              <h2 class="static-section-heading">Project Packages</h2>
+              <div class="static-grid static-grid-3">
+                <div class="static-card">
+                  <h3 class="static-card-title">Basic Static Website</h3>
+                  <div class="static-card-price">$200</div>
+                  <div class="static-feature">
+                    <span style="color: #af8cbd;">✓</span>
+                    <span class="static-feature-text">Responsive design</span>
+                  </div>
+                  <div class="static-feature">
+                    <span style="color: #af8cbd;">✓</span>
+                    <span class="static-feature-text">Editable static data</span>
+                  </div>
+                  <div class="static-feature">
+                    <span style="color: #af8cbd;">✓</span>
+                    <span class="static-feature-text">Professional Styling</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          <section class="static-section" id="work">
+            <div class="static-container">
+              <h2 class="static-section-heading">Selected Work</h2>
+              <div class="static-grid static-grid-2">
+                <div class="static-card">
+                  <a href="https://campaignion.netlify.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: block;">
+                    <div class="static-project-image">
+                      <img src="/placeholder.jpg" alt="Campaignion" />
+                    </div>
+                    <div>
+                      <h3 class="static-project-title">
+                        Campaignion
+                        <span class="static-featured-badge">Featured</span>
+                      </h3>
+                      <p style="color: #b58b9f; font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5;">
+                        An all encompassing Dungeon Master app to help you and your friends play DND together from anywhere!
+                      </p>
+                      <div>
+                        <span class="static-tech-tag">React</span>
+                        <span class="static-tech-tag">TypeScript</span>
+                        <span class="static-tech-tag">Convex</span>
+                        <span class="static-tech-tag">Shadcn</span>
+                        <span class="static-tech-tag">Clerk</span>
+                      </div>
+                    </div>
+                  </a>
+                </div>
+                
+                <div class="static-card">
+                  <a href="https://arreglarity.netlify.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: block;">
+                    <div class="static-project-image">
+                      <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem;">
+                        🚀
+                      </div>
+                    </div>
+                    <div>
+                      <h3 class="static-project-title">
+                        Arreglarity
+                        <span class="static-featured-badge">Featured</span>
+                      </h3>
+                      <p style="color: #b58b9f; font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5;">
+                        One stop shop for SSM-integrated maintenance ticket tracking for Landlords.
+                      </p>
+                      <div>
+                        <span class="static-tech-tag">React</span>
+                        <span class="static-tech-tag">TypeScript</span>
+                        <span class="static-tech-tag">Convex</span>
+                        <span class="static-tech-tag">Shadcn</span>
+                        <span class="static-tech-tag">Clerk</span>
+                        <span class="static-tech-tag">Twilio</span>
+                      </div>
+                    </div>
+                  </a>
+                </div>
+                
+                <div class="static-card">
+                  <a href="https://lawnchalibre.netlify.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: block;">
+                    <div class="static-project-image">
+                      <img src="/placeholder.jpg" alt="Lawncha Libre" />
+                    </div>
+                    <div>
+                      <h3 class="static-project-title">
+                        Lawncha Libre
+                        <span class="static-featured-badge">Featured</span>
+                      </h3>
+                      <p style="color: #b58b9f; font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5;">
+                        One stop shop for Landscaping Business Owners to manage projects, client reviews and quote intake forms!
+                      </p>
+                      <div>
+                        <span class="static-tech-tag">React</span>
+                        <span class="static-tech-tag">TypeScript</span>
+                        <span class="static-tech-tag">Vite</span>
+                        <span class="static-tech-tag">Clerk</span>
+                        <span class="static-tech-tag">Convex</span>
+                        <span class="static-tech-tag">Shadcn</span>
+                      </div>
+                    </div>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    
+    <!-- React app mount point -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <script>
+      // Hide static content once React app is mounted
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          const staticContent = document.getElementById('static-content');
+          const root = document.getElementById('root');
+          if (staticContent && root && root.children.length > 0) {
+            staticContent.style.display = 'none';
+          }
+        }, 100);
+      });
+    </script>
+  </body>
+</html>

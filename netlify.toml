@@ -1,0 +1,21 @@
+[build]
+  # Build command for production
+  command = "pnpm build"
+  # Output directory for the build
+  publish = "dist"
+  
+# Redirects for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Environment variables (these will need to be set in Netlify dashboard)
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "8"
+
+# Functions (if needed in the future)
+[functions]
+  directory = "netlify/functions"
+
