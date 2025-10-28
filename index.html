@@ -22,21 +22,19 @@
     <meta name="twitter:description" content="Professional web development and design services. Crafting digital experiences with precision and care." />
     
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
+      /* Scope all static styles to only the static-content div */
+      .static-content {
+        min-height: 100vh;
         font-family: system-ui, -apple-system, sans-serif;
         background-color: #1a1423;
         color: #eacdc2;
         line-height: 1.5;
       }
       
-      .static-content {
-        min-height: 100vh;
+      .static-content * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
       
       .static-nav {
