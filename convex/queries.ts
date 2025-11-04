@@ -102,3 +102,12 @@ export const getQuoteSubmissions = query({
       .collect();
   },
 });
+
+// Get resume data (public - anyone can view)
+export const getResumeData = query({
+  args: {},
+  handler: async (ctx) => {
+    const resume = await ctx.db.query("resume_data").first();
+    return resume || null;
+  },
+});

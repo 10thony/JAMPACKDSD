@@ -69,4 +69,29 @@ export default defineSchema({
     createdAt: v.number(),
     read: v.boolean(),
   }).index("by_created_at", ["createdAt"]).index("by_read", ["read"]),
+  
+  // Resume data table (single document)
+  resume_data: defineTable({
+    name: v.optional(v.string()),
+    title: v.optional(v.string()),
+    contact: v.optional(v.object({
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      portfolio: v.optional(v.string()),
+    })),
+    experience: v.array(v.object({
+      company: v.string(),
+      title: v.string(),
+      dates: v.string(),
+      location: v.optional(v.string()),
+      description: v.array(v.string()),
+    })),
+    skills: v.array(v.string()),
+    education: v.array(v.object({
+      degree: v.optional(v.string()),
+      institution: v.optional(v.string()),
+      dates: v.optional(v.string()),
+    })),
+    languages: v.optional(v.array(v.string())),
+  }),
 });

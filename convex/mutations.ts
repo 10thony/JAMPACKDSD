@@ -218,3 +218,51 @@ export const reorderProjectQuotes = mutation({
     await Promise.all(updates);
   },
 });
+
+// Update resume data (admin only)
+export const updateResumeData = mutation({
+  args: {
+    name: v.optional(v.string()),
+    title: v.optional(v.string()),
+    contact: v.optional(v.object({
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      portfolio: v.optional(v.string()),
+    })),
+    experience: v.optional(v.array(v.object({
+      company: v.string(),
+      title: v.string(),
+      dates: v.string(),
+      location: v.optional(v.string()),
+      description: v.array(v.string()),
+    }))),
+    skills: v.optional(v.array(v.string())),
+    education: v.optional(v.array(v.object({
+      degree: v.optional(v.string()),
+      institution: v.optional(v.string()),
+      dates: v.optional(v.string()),
+    }))),
+    languages: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    await checkAuthorization(ctx);
+    
+    const existing = await ctx.db.query("resume_data").first();
+    
+    if (existing) {
+      // Update existing resume
+      return await ctx.db.patch(existing._id, args);
+    } else {
+      // Create new resume with defaults
+      return await ctx.db.insert("resume_data", {
+        name: args.name,
+        title: args.title,
+        contact: args.contact,
+        experience: args.experience || [],
+        skills: args.skills || [],
+        education: args.education || [],
+        languages: args.languages || [],
+      });
+    }
+  },
+});
