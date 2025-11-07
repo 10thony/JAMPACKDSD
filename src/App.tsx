@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/clerk-react'
 import { ConvexClientProvider } from './components/convex-provider'
 import { SecretCellProvider } from './contexts/secret-cell-context'
+import { SettingsProvider } from './contexts/settings-context'
 import Home from './pages/Home'
 import Admin from './pages/Admin'
 import SignIn from './pages/SignIn'
@@ -26,14 +27,16 @@ function App() {
   return (
     <ClerkProvider {...clerkProps}>
       <ConvexClientProvider>
-        <SecretCellProvider>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/sign-in/*" element={<SignIn />} />
-            <Route path="/sign-up/*" element={<SignUp />} />
-          </Routes>
-        </SecretCellProvider>
+        <SettingsProvider>
+          <SecretCellProvider>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/sign-in/*" element={<SignIn />} />
+              <Route path="/sign-up/*" element={<SignUp />} />
+            </Routes>
+          </SecretCellProvider>
+        </SettingsProvider>
       </ConvexClientProvider>
     </ClerkProvider>
   )

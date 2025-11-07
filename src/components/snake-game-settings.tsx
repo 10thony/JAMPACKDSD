@@ -4,11 +4,14 @@ import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useSecretCell } from "@/contexts/secret-cell-context"
+import { useSettings } from "@/contexts/settings-context"
+import { Switch } from "@/components/ui/switch"
 
 export function SnakeGameSettings() {
   const { secretCell, gridSize, setSecretCell } = useSecretCell()
   const [row, setRow] = useState(secretCell?.row ?? 0)
   const [col, setCol] = useState(secretCell?.col ?? 0)
+  const { showProjectPackages, setShowProjectPackages } = useSettings()
 
   const handleSave = () => {
     if (row >= 0 && row < gridSize.rows && col >= 0 && col < gridSize.cols) {
@@ -41,6 +44,23 @@ export function SnakeGameSettings() {
   return (
     <Card className="p-6">
       <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-medium mb-2">Homepage Options</h2>
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <Label htmlFor="show-project-packages">Show Project Packages Section</Label>
+              <p className="text-sm text-muted-foreground">
+                Toggle the visibility of the packages section on the homepage services area.
+              </p>
+            </div>
+            <Switch
+              id="show-project-packages"
+              checked={showProjectPackages}
+              onCheckedChange={setShowProjectPackages}
+            />
+          </div>
+        </div>
+
         <div>
           <h2 className="text-xl font-medium mb-2">Snake Game Secret Cell</h2>
           <p className="text-sm text-muted-foreground">
