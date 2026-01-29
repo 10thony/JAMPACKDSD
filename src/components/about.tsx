@@ -98,190 +98,164 @@ export function About() {
     let currentExperience: Experience | null = null
     let currentEducation: { degree?: string; institution?: string; dates?: string } | null = null
 
+    // Match "Title - Company - StartDate - EndDate" (with optional trailing colon). Dates: Current, Present, or Month (Year), or Year.
+    const dateLike = /^(Current|Present)$/i
+    const monthOptionalYear = /^(Jan(uary)?|Feb(ruary)?|Mar(ch)?|Apr(il)?|May|Jun(e)?|Jul(y)?|Aug(ust)?|Sep(tember)?|Oct(ober)?|Nov(ember)?|Dec(ember)?)(\s+\d{4})?$/i
+    const yearOnly = /^\d{4}$/
+    const isDatePart = (s: string) => dateLike.test(s.trim()) || monthOptionalYear.test(s.trim()) || yearOnly.test(s.trim())
+
+    const isExperienceHeaderLine = (line: string): { title: string; company: string; dates: string } | null => {
+      const cleaned = line.replace(/:$/, "").trim()
+      const parts = cleaned.split(/\s*[—–-]\s*/).map(p => p.trim()).filter(Boolean)
+      if (parts.length >= 4) {
+        const endPart = parts[parts.length - 1]
+        const startPart = parts[parts.length - 2]
+        if (isDatePart(endPart) && isDatePart(startPart)) {
+          const title = parts.slice(0, -3).join(" - ")
+          const company = parts[parts.length - 3]
+          const dates = `${startPart} – ${endPart}`
+          return { title, company, dates }
+        }
+      }
+      return null
+    }
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const upperLine = line.toUpperCase()
 
-      // Detect section headers
-      if (upperLine.includes("EXPERIENCE") || upperLine.includes("WORK")) {
+      // Section headers: distinguish PROFESSIONAL EXPERIENCE from SUMMARY OF PROFESSIONAL EXPERIENCE
+      if (upperLine === "PROFESSIONAL EXPERIENCE" || upperLine === "WORK EXPERIENCE" || (upperLine.startsWith("PROFESSIONAL EXPERIENCE") && !upperLine.includes("SUMMARY"))) {
+        if (currentExperience) {
+          data.experience.push(currentExperience)
+          currentExperience = null
+        }
         currentSection = "experience"
         continue
-      } else if (upperLine.includes("SKILLS") || upperLine.includes("TECHNICAL SKILLS")) {
+      }
+      if (upperLine.includes("SUMMARY OF PROFESSIONAL EXPERIENCE")) {
+        currentSection = "summary"
+        continue
+      }
+      if (upperLine === "SKILLS" || upperLine.startsWith("TECHNICAL SKILLS")) {
+        if (currentExperience) {
+          data.experience.push(currentExperience)
+          currentExperience = null
+        }
         currentSection = "skills"
         continue
-      } else if (upperLine.includes("EDUCATION")) {
+      }
+      if (upperLine === "EDUCATION") {
+        if (currentExperience) {
+          data.experience.push(currentExperience)
+          currentExperience = null
+        }
         currentSection = "education"
         continue
-      } else if (upperLine.includes("LANGUAGES")) {
+      }
+      if (upperLine === "LANGUAGES") {
         currentSection = "languages"
         continue
       }
 
-      // Parse name and title
-      if (!data.name && line.length > 0 && i < 5) {
-        const nameMatch = line.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/)
-        if (nameMatch) {
-          data.name = nameMatch[1]
-          continue
+      // Name: allow ALL CAPS (e.g. JUSTIN MARTINEZ) or Title Case, early in doc
+      if (!data.name && line.length > 0 && i < 8) {
+        const words = line.split(/\s+/).filter(Boolean)
+        if (words.length >= 2 && words.length <= 4) {
+          const allCaps = /^[A-Z][A-Z\s]+$/.test(line) && line.length < 50
+          const titleCase = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+$/.test(line)
+          if (allCaps || titleCase) {
+            data.name = allCaps ? words.map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ") : line
+            continue
+          }
         }
       }
 
-      if (!data.title && line.length > 0 && i < 10 && !currentSection) {
-        if (line.toLowerCase().includes("developer") || line.toLowerCase().includes("engineer") || 
-            line.toLowerCase().includes("analyst") || line.toLowerCase().includes("software")) {
+      // Title from early lines (e.g. "Software Developer") - skip if it looks like a section header
+      if (!data.title && line.length > 0 && i < 15 && !currentSection) {
+        if (/developer|engineer|analyst|consultant/i.test(line) && line.length < 60 && !upperLine.includes("EXPERIENCE") && !upperLine.includes("SUMMARY")) {
           data.title = line
           continue
         }
       }
 
-      // Parse experience section
-      if (currentSection === "experience") {
-        if (upperLine.includes("EXPERIENCE") || upperLine.includes("WORK")) {
-          continue
-        }
-
-        let companyTitleMatch = line.match(/^(.+?)\s*[—–-]\s*(.+)$/)
-        if (!companyTitleMatch) {
-          companyTitleMatch = line.match(/^(.+?)\s*-\s*(.+)$/)
-        }
-        if (companyTitleMatch) {
-          if (currentExperience && (currentExperience.description.length > 0 || currentExperience.dates || currentExperience.title)) {
-            data.experience.push(currentExperience)
-          }
-          
-          const companyPart = companyTitleMatch[1].trim()
-          const titlePart = companyTitleMatch[2].trim()
-          const locationMatch = companyPart.match(/^(.+?),\s*(.+)$/)
-          
-          currentExperience = {
-            company: locationMatch ? locationMatch[1].trim() : companyPart,
-            title: titlePart,
-            dates: "",
-            location: locationMatch ? locationMatch[2].trim() : undefined,
-            description: []
-          }
-          continue
-        }
-
-        let dateMatch = line.match(/(\w+\s+\d{4}|[A-Z][a-z]+\s+\d{4})\s*[—–-]\s*(Present|\w+\s+\d{4}|[A-Z][a-z]+\s+\d{4})/i)
-        if (!dateMatch) {
-          dateMatch = line.match(/(\w+\s+\d{4})\s*-\s*(Present|\w+\s+\d{4})/i)
-        }
-        if (dateMatch && currentExperience) {
-          currentExperience.dates = `${dateMatch[1]} – ${dateMatch[2]}`
-          continue
-        }
-
-        if (line.match(/^[A-Z][^—]+[—–-]/) || upperLine.includes("SKILLS") || upperLine.includes("EDUCATION") || upperLine.includes("LANGUAGES")) {
-          continue
-        }
-
-        const isBulletPoint = line.match(/^[•\-\*●◦]\s*/) || line.match(/^\d+\.\s+/) || line.match(/^[a-z]\)\s+/)
-        const isLikelyDescription = currentExperience && 
-                                    currentExperience.dates && 
-                                    line.length > 15 && 
-                                    !line.match(/^[A-Z][a-z]+,\s+[A-Z]/) &&
-                                    !line.match(/^\w+\s+\d{4}/) &&
-                                    !upperLine.includes("EXPERIENCE") &&
-                                    !upperLine.includes("SKILLS") &&
-                                    !upperLine.includes("EDUCATION") &&
-                                    !upperLine.includes("LANGUAGES") &&
-                                    !line.match(/^[A-Z][^a-z]*$/)
-        
-        if (isBulletPoint || isLikelyDescription) {
-          const description = line
-            .replace(/^[•\-\*●◦]\s*/, "")
-            .replace(/^\d+\.\s+/, "")
-            .replace(/^[a-z]\)\s+/, "")
-            .trim()
-          if (description && currentExperience && description.length > 10) {
-            currentExperience.description.push(description)
-          }
-        }
-      }
-
-      // Parse skills section
-      if (currentSection === "skills") {
-        if (upperLine.includes("SKILLS") || upperLine.includes("LANGUAGES") || upperLine.includes("EDUCATION") || upperLine.includes("EXPERIENCE")) {
-          continue
-        }
-
-        let skillLine = line
-        const categoryMatch = line.match(/^[^:]+:\s*(.+)$/)
-        if (categoryMatch) {
-          skillLine = categoryMatch[1]
-        }
-
-        const skills = skillLine
-          .split(",")
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && s.length < 100 && !upperLine.includes("SKILLS") && !upperLine.includes("LANGUAGES"))
-        
-        if (skills.length > 0) {
-          data.skills.push(...skills)
-        }
-      }
-
-      // Parse education section
-      if (currentSection === "education") {
-        if (line.toLowerCase().includes("degree") || line.toLowerCase().includes("associate") || 
-            line.toLowerCase().includes("bachelor") || line.toLowerCase().includes("master") ||
-            line.toLowerCase().includes("diploma") || line.toLowerCase().includes("certificate")) {
-          if (currentEducation && (currentEducation.institution || currentEducation.degree)) {
-            data.education.push(currentEducation)
-          }
-          currentEducation = { degree: line }
-          continue
-        }
-
-        if (line.length > 0 && currentEducation && !currentEducation.institution) {
-          if (!line.match(/^\d{4}/) && !line.match(/[—–-]/) && 
-              !upperLine.includes("EDUCATION") && !upperLine.includes("EXPERIENCE") &&
-              !upperLine.includes("SKILLS") && !upperLine.includes("LANGUAGES")) {
-            currentEducation.institution = line
-          }
-        }
-
-        const eduDateMatch = line.match(/(\d{4})/g)
-        if (eduDateMatch && currentEducation && eduDateMatch.length <= 2) {
-          currentEducation.dates = eduDateMatch.join(" – ")
-        }
-      }
-
-      // Parse languages section
-      if (currentSection === "languages") {
-        const languages = line.split(",").map(l => l.trim()).filter(l => l.length > 0)
-        data.languages = [...(data.languages || []), ...languages]
-      }
-
-      // Parse contact information
-      if (i < 15) {
+      // Contact (email, phone, URL) in first 20 lines
+      if (i < 20) {
         const emailMatch = line.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
         if (emailMatch) {
           if (!data.contact) data.contact = {}
           data.contact.email = emailMatch[1]
         }
-
         const phoneMatch = line.match(/(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/)
         if (phoneMatch) {
           if (!data.contact) data.contact = {}
           data.contact.phone = phoneMatch[1]
         }
-
         const urlMatch = line.match(/(https?:\/\/[^\s]+)/)
         if (urlMatch) {
           if (!data.contact) data.contact = {}
           data.contact.portfolio = urlMatch[1]
         }
       }
+
+      // Experience section: "Title - Company - Start - End" starts new entry; everything else is description
+      if (currentSection === "experience") {
+        const header = isExperienceHeaderLine(line)
+        if (header) {
+          if (currentExperience) data.experience.push(currentExperience)
+          currentExperience = {
+            company: header.company,
+            title: header.title,
+            dates: header.dates,
+            description: []
+          }
+          continue
+        }
+
+        if (currentExperience && line.length > 0) {
+          const desc = line.replace(/^[•\-\*●◦]\s*/, "").replace(/^\d+\.\s+/, "").replace(/^[a-z]\)\s+/, "").trim()
+          if (desc.length > 0) currentExperience.description.push(desc)
+        }
+        continue
+      }
+
+      // Skills section: comma-separated
+      if (currentSection === "skills") {
+        const skillLine = line.replace(/^[^:]+:\s*/, "")
+        const skills = skillLine.split(",").map(s => s.trim()).filter(s => s.length > 0 && s.length < 100)
+        if (skills.length > 0) data.skills.push(...skills)
+        continue
+      }
+
+      // Education section: "Degree - Institution (Date)" or multi-line degree then institution
+      if (currentSection === "education") {
+        const parenDate = line.match(/\(([^)]+)\)/)
+        const dateStr = parenDate ? parenDate[1].trim() : ""
+        const withoutParen = line.replace(/\s*\([^)]+\)\s*$/, "").trim()
+        const parts = withoutParen.split(/\s*[—–-]\s*/).map(p => p.trim()).filter(Boolean)
+        if (parts.length >= 1) {
+          if (currentEducation && (currentEducation.degree || currentEducation.institution)) {
+            data.education.push(currentEducation)
+          }
+          currentEducation = {
+            degree: parts[0],
+            institution: parts.length >= 2 ? parts[1] : undefined,
+            dates: dateStr || undefined
+          }
+        }
+        continue
+      }
+
+      // Languages section
+      if (currentSection === "languages") {
+        const languages = line.split(",").map(l => l.trim()).filter(l => l.length > 0)
+        if (languages.length > 0) data.languages = [...(data.languages || []), ...languages]
+        continue
+      }
     }
 
-    if (currentExperience && (currentExperience.description.length > 0 || currentExperience.dates || currentExperience.title)) {
-      data.experience.push(currentExperience)
-    }
-    if (currentEducation && (currentEducation.institution || currentEducation.degree)) {
-      data.education.push(currentEducation)
-    }
+    if (currentExperience) data.experience.push(currentExperience)
+    if (currentEducation && (currentEducation.degree || currentEducation.institution)) data.education.push(currentEducation)
 
     data.skills = [...new Set(data.skills.filter(s => s.length > 0))]
 
@@ -679,12 +653,21 @@ export function About() {
               </div>
             </div>
 
-            {/* Upload New Resume Button */}
+            {/* Upload New Resume - label + hidden input so click opens file picker inside dialog (programmatic click is blocked) */}
             {isAuthorized && (
               <div className="flex justify-center mt-8">
-                <Button variant="outline" onClick={handleUploadClick}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Different Resume
+                <Input
+                  id="upload-different-resume"
+                  type="file"
+                  accept=".docx"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Button variant="outline" asChild>
+                  <Label htmlFor="upload-different-resume" className="cursor-pointer flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload Different Resume
+                  </Label>
                 </Button>
               </div>
             )}

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { About } from "./about"
 
 interface AboutModalProps {
@@ -10,6 +10,8 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[95vw] max-w-[95vw] lg:max-w-[1200px] max-h-[90vh] overflow-y-auto p-6">
+        <DialogTitle className="sr-only">About</DialogTitle>
+        <DialogDescription className="sr-only">Resume and professional background</DialogDescription>
         <About />
       </DialogContent>
     </Dialog>
