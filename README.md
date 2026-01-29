@@ -15,7 +15,7 @@ Professional web development and design services specializing in crafting digita
 - **UI Components**: Radix UI + shadcn/ui
 - **Backend**: Convex (real-time database and serverless functions)
 - **Authentication**: Clerk (user management and authentication)
-- **Package Manager**: pnpm
+- **Package Manager**: Bun
 - **Icons**: Lucide React
 
 ## Getting Started
@@ -23,14 +23,14 @@ Professional web development and design services specializing in crafting digita
 ### Prerequisites
 
 - Node.js 18+ 
-- pnpm (recommended) or npm
+- Bun (recommended) or npm
 
 ### Installation
 
 1. Clone the repository
 2. Install dependencies:
    ```bash
-   pnpm install
+   bun install
    ```
 
 3. Set up Convex:
@@ -62,18 +62,18 @@ Professional web development and design services specializing in crafting digita
 
 5. Start the development server:
    ```bash
-   pnpm dev
+   bun run dev
    ```
 
 6. Open [http://localhost:5173](http://localhost:5173) in your browser
 
 ### Available Scripts
 
-- `pnpm dev` - Start Vite development server
-- `pnpm dev:convex` - Start Convex development server (run in separate terminal)
-- `pnpm build` - Build for production
-- `pnpm preview` - Preview production build locally
-- `pnpm lint` - Run ESLint
+- `bun run dev` - Start Vite development server
+- `bun run dev:convex` - Start Convex development server (run in separate terminal)
+- `bun run build` - Build for production
+- `bun run preview` - Preview production build locally
+- `bun run lint` - Run ESLint
 
 ### Project Structure
 
@@ -159,7 +159,7 @@ This project is configured for easy deployment to Netlify.
 
 4. Deploy to production:
    ```bash
-   pnpm build
+   bun run build
    netlify deploy --prod
    ```
 
@@ -170,7 +170,7 @@ This project is configured for easy deployment to Netlify.
 3. Click "Add new site" → "Import an existing project"
 4. Connect your repository
 5. Configure build settings:
-   - **Build command**: `pnpm build`
+   - **Build command**: `bun run build`
    - **Publish directory**: `dist`
 6. Add environment variables in Netlify dashboard (same as `.env.local`)
 7. Click "Deploy site"
@@ -199,5 +199,5 @@ The project includes a hardcoded static HTML snapshot that loads instantly while
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run linting: `pnpm lint`
+4. Run linting: `bun run lint`
 5. Submit a pull request

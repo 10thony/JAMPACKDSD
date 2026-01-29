@@ -1,6 +1,6 @@
 [build]
   # Build command for production
-  command = "pnpm build"
+  command = "bun run build"
   # Output directory for the build
   publish = "dist"
   
@@ -13,7 +13,6 @@
 # Environment variables (these will need to be set in Netlify dashboard)
 [build.environment]
   NODE_VERSION = "20"
-  PNPM_VERSION = "8"
   # Exclude build output from secrets scanning since VITE_ variables are compiled into the bundle
   # These are intentionally public frontend keys that must be in the client-side code
   SECRETS_SCAN_OMIT_PATHS = "dist/**"
