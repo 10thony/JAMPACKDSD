@@ -1,16 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
-
-// Authorized user ID
-const AUTHORIZED_USER_ID = "user_2yeq7o5pXddjNeLFDpoz5tTwkWS";
-
-// Helper function to check if user is authorized
-async function checkAuthorization(ctx: any): Promise<void> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity || identity.subject !== AUTHORIZED_USER_ID) {
-    throw new Error("Unauthorized: Only the authorized user can manage projects");
-  }
-}
+import { checkAuthorization } from "./auth";
 
 // Add a new project
 export const addProject = mutation({

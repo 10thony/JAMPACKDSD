@@ -7,6 +7,8 @@ import Home from './pages/Home'
 import Admin from './pages/Admin'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
+import BlogIndex from './pages/BlogIndex'
+import BlogPost from './pages/BlogPost'
 
 // Get Clerk environment variables
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -31,6 +33,8 @@ function App() {
           <SecretCellProvider>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/blog" element={<BlogIndex />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/sign-in/*" element={<SignIn />} />
               <Route path="/sign-up/*" element={<SignUp />} />

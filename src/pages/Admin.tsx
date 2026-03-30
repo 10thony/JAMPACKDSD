@@ -1,13 +1,24 @@
+import { useEffect } from "react"
+import { BlogManager } from "@/components/blog-manager"
 import { ProjectManager } from "@/components/project-manager"
 import { ProjectQuoteManager } from "@/components/project-quote-manager"
 import { QuoteSubmissionsManager } from "@/components/quote-submissions-manager"
 import { SnakeGameSettings } from "@/components/snake-game-settings"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { UserButton } from "@clerk/clerk-react"
 
 export default function Admin() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (location.hash !== "#blog-admin") return
+    requestAnimationFrame(() => {
+      document.getElementById("blog-admin")?.scrollIntoView({ behavior: "smooth" })
+    })
+  }, [location.hash, location.pathname])
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-8">
@@ -26,6 +37,15 @@ export default function Admin() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="lg:col-span-2">
+            <div className="mb-6" id="blog-admin">
+              <h2 className="text-xl font-light tracking-tight mb-2">Blog</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Create posts, import Markdown drafts, publish when ready.
+              </p>
+              <BlogManager />
+            </div>
+          </div>
           <div className="lg:col-span-2">
             <QuoteSubmissionsManager />
           </div>

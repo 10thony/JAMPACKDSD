@@ -1,7 +1,5 @@
 import { query } from "./_generated/server";
-
-// Authorized user ID
-const AUTHORIZED_USER_ID = "user_2yeq7o5pXddjNeLFDpoz5tTwkWS";
+import { AUTHORIZED_USER_ID } from "./auth";
 
 // Get all projects ordered by featured status and order
 export const getProjects = query({

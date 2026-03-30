@@ -94,4 +94,25 @@ export default defineSchema({
     })),
     languages: v.optional(v.array(v.string())),
   }),
+
+  blog_posts: defineTable({
+    title: v.string(),
+    slug: v.string(),
+    bodyMarkdown: v.string(),
+    excerpt: v.optional(v.string()),
+    status: v.union(v.literal("draft"), v.literal("published")),
+    publishedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_status_publishedAt", ["status", "publishedAt"]),
+
+  blog_comments: defineTable({
+    postId: v.id("blog_posts"),
+    authorUserId: v.string(),
+    authorName: v.string(),
+    body: v.string(),
+    createdAt: v.number(),
+  }).index("by_post", ["postId"]),
 });

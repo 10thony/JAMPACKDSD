@@ -26,6 +26,12 @@ export function Navigation() {
             <a href="#work" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Work
             </a>
+            <Link
+              to="/blog"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Blog
+            </Link>
             <button 
               onClick={() => setAboutModalOpen(true)}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
