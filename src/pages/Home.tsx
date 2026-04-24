@@ -1,17 +1,12 @@
 import { useState, useEffect } from 'react'
-import { ProjectsGrid } from "@/components/projects-grid"
-import { ProjectQuotesGrid } from "@/components/project-quotes-grid"
 import { Hero } from "@/components/hero"
-import { Navigation } from "@/components/navigation"
 import { FloatingAddProject } from "@/components/floating-add-project"
 import { SnakeGameOverlay } from "@/components/snake-game-overlay"
 import { useSecretCell } from "@/contexts/secret-cell-context"
-import { useSettings } from "@/contexts/settings-context"
 
 export default function Home() {
   const [showSnake, setShowSnake] = useState(false)
   const { secretCell, gridSize, setSecretCell, calculateGridSize } = useSecretCell()
-  const { showProjectPackages } = useSettings()
 
   // Calculate grid size based on screen size
   useEffect(() => {
@@ -60,16 +55,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative">
-      <Navigation />
       <main>
         <Hero />
-        <div className="space-y-4">
-          {showProjectPackages && <ProjectQuotesGrid />}
-          <div className="container mx-auto px-6">
-            <div className="border-t border-border/50"></div>
-          </div>
-          <ProjectsGrid />
-        </div>
       </main>
       <FloatingAddProject />
       
