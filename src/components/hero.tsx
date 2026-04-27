@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import { useQuery } from "convex/react"
+import { SignInButton, UserButton, useUser } from "@clerk/clerk-react"
 import { api } from "../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, Settings } from "lucide-react"
 import { SolarSystemCanvas, SUN_FOCUS_ID } from "@/components/solar-system-scene"
 
 type ProjectRecord = {
@@ -49,6 +51,7 @@ type Planet = {
 }
 
 type FallbackPlanet = Omit<Planet, "radius" | "speed" | "offset">
+const AUTHORIZED_USER_ID = "user_2yeq7o5pXddjNeLFDpoz5tTwkWS"
 
 const fallbackPlanets: FallbackPlanet[] = [
   {
@@ -138,6 +141,8 @@ const fallbackPlanets: FallbackPlanet[] = [
 ]
 
 export function Hero() {
+  const { isSignedIn, user } = useUser()
+  const isAuthorized = user?.id === AUTHORIZED_USER_ID
   const projects = (useQuery(api.queries.getProjects) || []) as ProjectRecord[]
   const resumeData = useQuery(api.queries.getResumeData) as ResumeRecord | undefined
   const [paused, setPaused] = useState(false)
@@ -179,13 +184,31 @@ export function Hero() {
     })
   }, [projects])
 
+  const atlasTemplatePlanet = useMemo<Planet>(() => {
+    const atlasFallback = fallbackPlanets.find((planet) => planet.name === "Atlas") || fallbackPlanets[2]
+    return {
+      id: "atlas-template",
+      name: atlasFallback.name,
+      description: atlasFallback.description,
+      technologies: atlasFallback.technologies,
+      color: atlasFallback.color,
+      glow: atlasFallback.glow,
+      ring: atlasFallback.ring,
+      radius: 64 + 2 * 26,
+      speed: (0.0004 + 2 * 0.00008) * 0.3,
+      size: atlasFallback.size,
+      offset: 0,
+      moonCount: atlasFallback.moonCount,
+      liveUrl: atlasFallback.liveUrl,
+      githubUrl: atlasFallback.githubUrl,
+    }
+  }, [])
+
   const selectedPlanet = useMemo(() => {
     if (selectedPlanetId === SUN_FOCUS_ID) return null
-    return (
-      planets.find((planet) => planet.id === selectedPlanetId) ??
-      planets[Math.min(2, Math.max(0, planets.length - 1))]
-    )
-  }, [selectedPlanetId, planets])
+    if (!selectedPlanetId) return atlasTemplatePlanet
+    return planets.find((planet) => planet.id === selectedPlanetId) ?? atlasTemplatePlanet
+  }, [selectedPlanetId, planets, atlasTemplatePlanet])
 
   const sunAbout = useMemo(() => {
     const experiences = resumeData?.experience || []
@@ -251,12 +274,6 @@ export function Hero() {
     if (deltaX > 0) goExperience("prev")
   }
 
-  useEffect(() => {
-    if (!selectedPlanetId && planets.length > 0) {
-      setSelectedPlanetId(planets[Math.min(2, planets.length - 1)].id)
-    }
-  }, [selectedPlanetId, planets])
-
   const scenePlanets = useMemo(
     () =>
       planets.map((p) => ({
@@ -272,30 +289,196 @@ export function Hero() {
     [planets],
   )
 
+  const shouldPauseForExperienceReading = selectedPlanetId === SUN_FOCUS_ID && experiencePanelExpanded
+  const scenePaused = paused || shouldPauseForExperienceReading
+  const selectedPlanetLiveUrl = selectedPlanet?.liveUrl?.trim()
+  const selectedPlanetGithubUrl = selectedPlanet?.githubUrl?.trim()
+
   return (
-    <section id="work" className="pt-16">
-      <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden border-y border-[#d7b07933] bg-[#030510] text-[#f4eedf]">
+    <section id="work" className="relative pt-16">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 px-4 md:px-10">
+        <div className="flex h-full items-center justify-between">
+          <div className="pointer-events-auto flex items-center gap-2 md:gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                if (selectedPlanetId !== SUN_FOCUS_ID) {
+                  setSelectedPlanetId(SUN_FOCUS_ID)
+                  setAboutPanelExpanded(true)
+                  return
+                }
+                setAboutPanelExpanded((v) => !v)
+              }}
+              className="hud-button cosmic-body h-8 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#efcc8f] md:h-10 md:px-5 md:text-sm"
+              aria-expanded={aboutPanelExpanded}
+              aria-label={aboutPanelExpanded ? "Collapse about panel" : "Expand about panel"}
+            >
+              About
+              {aboutPanelExpanded ? (
+                <ChevronUp className="h-4 w-4" aria-hidden />
+              ) : (
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              )}
+            </Button>
+
+            {isSignedIn ? (
+              <div className="flex items-center gap-2 md:gap-3">
+                {isAuthorized && (
+                  <Link to="/admin">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hud-button h-8 w-8 text-[#f8e6c7] md:h-10 md:w-10"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="sr-only">Settings</span>
+                    </Button>
+                  </Link>
+                )}
+
+                <UserButton afterSignOutUrl="/" />
+              </div>
+            ) : (
+              <SignInButton
+                mode="modal"
+                appearance={{
+                  elements: {
+                    modalContent: "border border-[#d7b07955] bg-[#090e22] text-[#f4eedf]",
+                    card: "border border-[#d7b07940] bg-[#0b1027] shadow-[0_20px_70px_-40px_rgba(255,174,83,0.65)]",
+                    headerTitle: "text-[#f2dfbb]",
+                    headerSubtitle: "text-[#ccb58d]",
+                    socialButtonsBlockButton: "border border-[#d7b07944] bg-[#111a3a] text-[#f4eedf] hover:bg-[#16224b]",
+                    formButtonPrimary: "bg-[#d79a4d] text-[#170e08] hover:bg-[#e6ad63]",
+                    footerActionLink: "text-[#e7c58c] hover:text-[#f7d6a5]",
+                  },
+                }}
+              >
+                <Button
+                  variant="outline"
+                  className="hud-button cosmic-body h-8 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#f8e6c7] md:h-10 md:px-5 md:text-sm"
+                >
+                  Login
+                </Button>
+              </SignInButton>
+            )}
+          </div>
+
+          <div className="pointer-events-auto flex items-center gap-2 md:gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                if (selectedPlanetId !== SUN_FOCUS_ID) {
+                  setSelectedPlanetId(SUN_FOCUS_ID)
+                  setExperiencePanelExpanded(true)
+                  return
+                }
+                setExperiencePanelExpanded((v) => !v)
+              }}
+              className="hud-button cosmic-body h-8 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#efcc8f] md:h-10 md:px-5 md:text-sm"
+              aria-expanded={experiencePanelExpanded}
+              aria-label={experiencePanelExpanded ? "Collapse experience panel" : "Expand experience panel"}
+            >
+              Experience
+              {experiencePanelExpanded ? (
+                <ChevronUp className="h-4 w-4" aria-hidden />
+              ) : (
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              className="hud-button cosmic-body h-8 rounded-full px-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#f8e6c7] md:h-10 md:px-5 md:text-sm"
+              asChild
+            >
+              <a href="/blog">Star Logs</a>
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="observatory-shell relative h-[calc(100vh-4rem)] w-full overflow-hidden border-y border-[#d7b07933] bg-[#030510] text-[#f4eedf]">
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Sora:wght@300;400;500;600&display=swap');
           .cosmic-title { font-family: "Cormorant Garamond", serif; letter-spacing: 0.06em; }
           .cosmic-body { font-family: "Sora", sans-serif; letter-spacing: 0.015em; }
+          .observatory-shell::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+              linear-gradient(90deg, rgba(247,208,141,0.07) 1px, transparent 1px),
+              linear-gradient(180deg, rgba(247,208,141,0.045) 1px, transparent 1px);
+            background-size: 72px 72px;
+            mask-image: radial-gradient(circle at 50% 48%, transparent 0 18%, black 55%, transparent 100%);
+            opacity: 0.42;
+          }
           .scene-card {
-            border: 1px solid rgba(231, 193, 132, 0.29);
-            background: linear-gradient(160deg, rgba(16,22,45,0.9), rgba(9,14,33,0.88));
-            box-shadow: 0 26px 80px -48px rgba(255, 164, 82, 0.72), inset 0 0 0 1px rgba(255,255,255,0.03);
-            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(244, 202, 142, 0.32);
+            background:
+              linear-gradient(150deg, rgba(19,28,58,0.86), rgba(8,12,27,0.78) 58%, rgba(15,12,32,0.86)),
+              radial-gradient(circle at 18% 0%, rgba(244,194,111,0.18), transparent 38%);
+            box-shadow:
+              0 26px 90px -48px rgba(255, 174, 83, 0.8),
+              0 0 0 1px rgba(122, 157, 255, 0.08),
+              inset 0 1px 0 rgba(255,255,255,0.08),
+              inset 0 -28px 60px rgba(0,0,0,0.26);
+            backdrop-filter: blur(18px) saturate(1.18);
           }
           .scene-card::before {
             content: "";
             position: absolute;
             inset: 0;
             border-radius: inherit;
-            background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0));
+            background:
+              linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0) 42%),
+              linear-gradient(90deg, rgba(255,218,151,0.12) 0 1px, transparent 1px calc(100% - 1px), rgba(142,171,255,0.16) calc(100% - 1px));
+            pointer-events: none;
+          }
+          .scene-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background:
+              linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+              radial-gradient(circle at 82% 18%, rgba(135,166,255,0.16), transparent 24%);
+            background-size: 100% 9px, auto;
+            mix-blend-mode: screen;
+            opacity: 0.4;
             pointer-events: none;
           }
           .scene-card-float {
             animation: panelFloat 8.4s ease-in-out infinite;
           }
+          .scene-chip {
+            border: 1px solid rgba(255,255,255,0.18);
+            background: linear-gradient(180deg, rgba(42,56,99,0.82), rgba(19,28,57,0.76));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 24px -18px rgba(116,155,255,0.8);
+          }
+          .hud-button {
+            border-color: transparent !important;
+            background: transparent !important;
+            box-shadow: none !important;
+          }
+          .hud-button:hover {
+            background: rgba(255, 223, 171, 0.08) !important;
+          }
+          .solar-cta {
+            background: linear-gradient(135deg, #ffd891, #de8a3a 55%, #a65335) !important;
+            color: #170e08 !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.42), 0 18px 34px -24px rgba(255,173,72,0.95);
+          }
+          .solar-cta:hover {
+            background: linear-gradient(135deg, #ffe5ad, #ef9d48 55%, #bd6540) !important;
+          }
+          .scroll-orbit::-webkit-scrollbar { width: 9px; }
+          .scroll-orbit::-webkit-scrollbar-track { background: rgba(255,255,255,0.06); border-radius: 999px; }
+          .scroll-orbit::-webkit-scrollbar-thumb { background: linear-gradient(#f0ce91, #7e91c7); border-radius: 999px; border: 2px solid rgba(13,18,39,0.94); }
           @keyframes panelFloat {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-5px); }
@@ -305,7 +488,7 @@ export function Hero() {
         <div className="absolute inset-0 z-0">
           <SolarSystemCanvas
             planets={scenePlanets}
-            paused={paused}
+            paused={scenePaused}
             selectedId={selectedPlanetId}
             onSelect={setSelectedPlanetId}
           />
@@ -314,23 +497,13 @@ export function Hero() {
         <div className="pointer-events-none absolute inset-0 z-10">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_8%,rgba(255,209,136,0.14),transparent_38%),radial-gradient(circle_at_87%_90%,rgba(111,160,255,0.14),transparent_36%),radial-gradient(circle_at_44%_76%,rgba(129,97,255,0.08),transparent_34%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:radial-gradient(circle_at_center,rgba(255,255,255,0.35)_0.6px,transparent_0.6px)] [background-size:3px_3px]" />
-          <div className="pointer-events-auto absolute right-4 top-16 md:right-10 md:top-10">
-            <Button
-              variant="outline"
-              className="cosmic-body h-8 border-[#f5c78f70] bg-[#10173bcc] px-3 text-xs text-[#f8e6c7] hover:bg-[#1a2555] md:h-9 md:px-4 md:text-sm"
-              asChild
-            >
-              <a href="/blog">Star Logs</a>
-            </Button>
-          </div>
-
-          <p className="cosmic-body pointer-events-none absolute bottom-3 left-4 max-w-[72vw] text-[10px] leading-relaxed text-[#cfbea3] md:bottom-8 md:left-8 md:max-w-xs md:text-sm">
+          <p className="cosmic-body pointer-events-none absolute bottom-3 left-4 max-w-[72vw] px-3 py-2 text-[10px] leading-relaxed text-[#cfbea3] [text-shadow:0_0_18px_rgba(246,188,120,0.55)] md:bottom-8 md:left-8 md:max-w-xs md:text-sm">
             <span className="text-[#f0cc8d]">Flight controls:</span> drag to orbit · scroll to zoom · right-drag to pan
           </p>
 
           {selectedPlanet && (
             <>
-              <aside className="scene-card scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(72vw,370px)] rounded-2xl p-3 text-[#f7ebd5] md:left-10 md:top-10 md:w-[min(100vw-2rem,370px)] md:p-5">
+              <aside className="scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(72vw,370px)] p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:left-10 md:top-10 md:w-[min(100vw-2rem,370px)] md:p-5">
                 <p className="cosmic-title text-[10px] uppercase tracking-[0.32em] text-[#efcc8f]">Selected Orbit</p>
                 <h2 className="cosmic-title mt-2 text-2xl font-semibold leading-none md:text-[2.05rem]">{selectedPlanet.name}</h2>
                 <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#dfcdaf] md:mt-3 md:line-clamp-none md:text-sm">
@@ -340,7 +513,7 @@ export function Hero() {
                   {selectedPlanet.technologies.map((tech) => (
                     <span
                       key={`mobile-${tech}`}
-                      className="rounded-md border border-[#ffffff2f] bg-[#1d2747b8] px-2 py-1 text-[10px] text-[#f7e9cf]"
+                      className="scene-chip rounded-md px-2 py-1 text-[10px] text-[#f7e9cf]"
                     >
                       {tech}
                     </span>
@@ -354,7 +527,7 @@ export function Hero() {
                   {selectedPlanet.technologies.map((tech) => (
                     <span
                       key={tech}
-                      className="rounded-md border border-[#ffffff2f] bg-[#1d2747b8] px-2 py-1 text-[10px] text-[#f7e9cf] md:text-[11px]"
+                      className="scene-chip rounded-md px-2 py-1 text-[10px] text-[#f7e9cf] md:text-[11px]"
                     >
                       {tech}
                     </span>
@@ -365,25 +538,38 @@ export function Hero() {
               <aside className="scene-card cosmic-body pointer-events-auto absolute bottom-4 right-4 hidden w-[min(100vw-2rem,315px)] rounded-2xl p-4 text-[#f7ebd5] md:bottom-10 md:right-10 md:block">
                 <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Actions</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedPlanet.liveUrl && (
+                  {selectedPlanetLiveUrl ? (
                     <Button
                       asChild
                       size="sm"
-                      className="bg-[#e4a24f] text-[#17100a] hover:bg-[#f1b86b]"
+                      className="solar-cta"
                     >
-                      <a href={selectedPlanet.liveUrl}>Launch</a>
+                      <a href={selectedPlanetLiveUrl}>Launch</a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="solar-cta opacity-55" disabled>
+                      Launch
                     </Button>
                   )}
-                  {selectedPlanet.githubUrl && (
+                  {selectedPlanetGithubUrl ? (
                     <Button
                       asChild
                       size="sm"
                       variant="outline"
-                      className="border-[#8db7ff88] bg-transparent text-[#d4e2ff] hover:bg-[#213965]"
+                      className="hud-button text-[#d4e2ff]"
                     >
-                      <a href={selectedPlanet.githubUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={selectedPlanetGithubUrl} target="_blank" rel="noopener noreferrer">
                         Source
                       </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="hud-button text-[#d4e2ff] opacity-55"
+                      disabled
+                    >
+                      Source
                     </Button>
                   )}
                   <Button
@@ -391,7 +577,7 @@ export function Hero() {
                     size="sm"
                     variant="outline"
                     onClick={() => setPaused((value) => !value)}
-                    className="border-[#f3d6a266] bg-transparent text-[#f3e2c2] hover:bg-[#332742]"
+                    className="hud-button text-[#f3e2c2]"
                   >
                     {paused ? "Resume" : "Pause"}
                   </Button>
@@ -401,21 +587,34 @@ export function Hero() {
               <aside className="scene-card cosmic-body pointer-events-auto absolute bottom-4 right-4 left-4 rounded-2xl p-3 text-[#f7ebd5] md:hidden">
                 <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Actions</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedPlanet.liveUrl && (
-                    <Button asChild size="sm" className="h-8 bg-[#e4a24f] px-3 text-xs text-[#17100a] hover:bg-[#f1b86b]">
-                      <a href={selectedPlanet.liveUrl}>Launch</a>
+                  {selectedPlanetLiveUrl ? (
+                    <Button asChild size="sm" className="solar-cta h-8 px-3 text-xs">
+                      <a href={selectedPlanetLiveUrl}>Launch</a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="solar-cta h-8 px-3 text-xs opacity-55" disabled>
+                      Launch
                     </Button>
                   )}
-                  {selectedPlanet.githubUrl && (
+                  {selectedPlanetGithubUrl ? (
                     <Button
                       asChild
                       size="sm"
                       variant="outline"
-                      className="h-8 border-[#8db7ff88] bg-transparent px-3 text-xs text-[#d4e2ff] hover:bg-[#213965]"
+                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff]"
                     >
-                      <a href={selectedPlanet.githubUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={selectedPlanetGithubUrl} target="_blank" rel="noopener noreferrer">
                         Source
                       </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff] opacity-55"
+                      disabled
+                    >
+                      Source
                     </Button>
                   )}
                   <Button
@@ -423,7 +622,7 @@ export function Hero() {
                     size="sm"
                     variant="outline"
                     onClick={() => setPaused((value) => !value)}
-                    className="h-8 border-[#f3d6a266] bg-transparent px-3 text-xs text-[#f3e2c2] hover:bg-[#332742]"
+                    className="hud-button h-8 px-3 text-xs text-[#f3e2c2]"
                   >
                     {paused ? "Resume" : "Pause"}
                   </Button>
@@ -434,28 +633,10 @@ export function Hero() {
 
           {selectedPlanetId === SUN_FOCUS_ID && (
             <>
-              <aside className="scene-card scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(100vw-2rem,360px)] rounded-2xl p-3 text-[#f7ebd5] md:left-10 md:top-10 md:p-5">
-                <div className="relative z-[1] flex items-start justify-between gap-2">
-                  <p className="cosmic-title text-[10px] uppercase tracking-[0.34em] text-[#efcc8f]">About</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setAboutPanelExpanded((v) => !v)}
-                    className="-mt-0.5 h-8 w-8 shrink-0 text-[#efcc8f] hover:bg-[#ffffff14]"
-                    aria-expanded={aboutPanelExpanded}
-                    aria-label={aboutPanelExpanded ? "Collapse about panel" : "Expand about panel"}
-                  >
-                    {aboutPanelExpanded ? (
-                      <ChevronUp className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" aria-hidden />
-                    )}
-                  </Button>
-                </div>
+              <aside className="scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(100vw-2rem,360px)] p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:left-10 md:top-10 md:p-5">
                 {aboutPanelExpanded && (
                   <>
-                    <h2 className="cosmic-title mt-2 text-[2rem] font-semibold leading-none md:text-[2.15rem]">{sunAbout.name}</h2>
+                    <h2 className="cosmic-title text-[2rem] font-semibold leading-none md:text-[2.15rem]">{sunAbout.name}</h2>
                     <p className="mt-1 text-xs text-[#d8c39f] md:text-sm">{sunAbout.title}</p>
                     <a href={`mailto:${sunAbout.email}`} className="mt-2 block text-xs text-[#f0d6ad] hover:text-[#ffe5c0] md:text-sm">
                       {sunAbout.email}
@@ -464,9 +645,8 @@ export function Hero() {
                 )}
               </aside>
 
-              <aside className="scene-card cosmic-body pointer-events-auto absolute right-4 top-28 left-4 rounded-2xl p-3 text-[#f7ebd5] md:top-28 md:left-auto md:w-[min(100vw-2rem,370px)] md:p-4">
+              <aside className="cosmic-body pointer-events-auto absolute left-1/2 top-28 w-[min(100vw-2.5rem,560px)] -translate-x-1/2 rounded-2xl border border-transparent bg-transparent p-4 text-[#f7ebd5] shadow-none [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:top-24 md:p-5">
                 <div className="relative z-[1] flex items-center justify-between gap-2">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#efcc8f]">Experience</p>
                   <div className="flex items-center gap-2">
                     {experiencePanelExpanded && (
                       <Button
@@ -476,47 +656,32 @@ export function Hero() {
                         onClick={() =>
                           setExperienceView((view) => (view === "detail" ? "list" : "detail"))
                         }
-                        className="h-7 border-[#ffffff35] bg-transparent px-2 text-[10px] text-[#f2ddba] hover:bg-[#2a3663]"
+                        className="hud-button h-7 px-2 text-[10px] text-[#f2ddba]"
                       >
                         {experienceView === "detail" ? "List" : "Detail"}
                       </Button>
                     )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setExperiencePanelExpanded((v) => !v)}
-                      className="h-8 w-8 shrink-0 text-[#efcc8f] hover:bg-[#ffffff14]"
-                      aria-expanded={experiencePanelExpanded}
-                      aria-label={experiencePanelExpanded ? "Collapse experience panel" : "Expand experience panel"}
-                    >
-                      {experiencePanelExpanded ? (
-                        <ChevronUp className="h-4 w-4" aria-hidden />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" aria-hidden />
-                      )}
-                    </Button>
                   </div>
                 </div>
 
                 {experiencePanelExpanded && (
                   <>
                 <div
-                  className="mt-2 max-h-[250px] overflow-y-auto rounded-xl border border-[#ffffff24] bg-[#17213dbb] p-3 pr-2 md:max-h-[420px]"
+                  className="scroll-orbit mt-3 max-h-[360px] w-full overflow-y-auto rounded-none border border-transparent bg-[#0b1027] p-4 pr-3 shadow-[inset_0_1px_22px_rgba(0,0,0,0.28)] md:max-h-[620px]"
                   onTouchStart={handleExperienceTouchStart}
                   onTouchEnd={handleExperienceTouchEnd}
                 >
                   {experienceView === "detail" ? (
                     <>
-                      <p className="mt-2 text-sm font-semibold text-[#f8ebd4]">
+                      <p className="text-base font-semibold leading-snug text-[#f8ebd4] md:text-lg">
                         {activeExperience?.title || "Role"}
                       </p>
-                      <p className="text-xs text-[#d0b690]">
+                      <p className="mt-1 text-sm text-[#d0b690]">
                         {activeExperience?.company || "Company"} - {activeExperience?.dates || "Dates"}
                       </p>
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-3 space-y-3">
                         {(activeExperience?.description || []).map((line, lineIndex) => (
-                          <p key={`${line}-${lineIndex}`} className="text-xs leading-relaxed text-[#dac8a8]">
+                          <p key={`${line}-${lineIndex}`} className="text-sm leading-relaxed text-[#dac8a8] md:text-[0.95rem]">
                             {line}
                           </p>
                         ))}
@@ -534,12 +699,12 @@ export function Hero() {
                           }}
                           className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                             index === experienceIndex
-                              ? "border-[#f0c57e88] bg-[#263764] text-[#f9e8c7]"
-                              : "border-[#ffffff2b] bg-[#1c274a] text-[#e8d2ac] hover:bg-[#23325d]"
+                              ? "border-[#f0c57e88] bg-[#2a3b70] text-[#f9e8c7]"
+                              : "border-[#ffffff2b] bg-[#111a37] text-[#e8d2ac] hover:bg-[#22325f]"
                           }`}
                         >
-                          <p className="text-xs font-semibold">{experience.title || "Role"}</p>
-                          <p className="mt-1 text-[11px] text-[#cbb08a]">{experience.dates || "Dates"}</p>
+                          <p className="text-sm font-semibold">{experience.title || "Role"}</p>
+                          <p className="mt-1 text-xs text-[#cbb08a]">{experience.dates || "Dates"}</p>
                         </button>
                       ))}
                     </div>
@@ -555,7 +720,7 @@ export function Hero() {
                       size="sm"
                       variant="outline"
                       onClick={() => goExperience("prev")}
-                      className="h-8 border-[#ffffff32] bg-transparent px-2 text-xs text-[#f3dfbd] hover:bg-[#2d3a6a] md:px-3 md:text-sm"
+                      className="hud-button h-8 px-2 text-xs text-[#f3dfbd] md:px-3 md:text-sm"
                     >
                       Prev
                     </Button>
@@ -564,7 +729,7 @@ export function Hero() {
                       size="sm"
                       variant="outline"
                       onClick={() => goExperience("next")}
-                      className="h-8 border-[#ffffff32] bg-transparent px-2 text-xs text-[#f3dfbd] hover:bg-[#2d3a6a] md:px-3 md:text-sm"
+                      className="hud-button h-8 px-2 text-xs text-[#f3dfbd] md:px-3 md:text-sm"
                     >
                       Next
                     </Button>
@@ -579,7 +744,7 @@ export function Hero() {
                 <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Capabilities</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {sunAbout.skills.map((skill) => (
-                    <span key={skill} className="rounded-md border border-[#ffffff2a] bg-[#1d2747b8] px-2 py-1 text-[11px] text-[#f7e9cf]">
+                    <span key={skill} className="scene-chip rounded-md px-2 py-1 text-[11px] text-[#f7e9cf]">
                       {skill}
                     </span>
                   ))}
@@ -590,7 +755,7 @@ export function Hero() {
                 <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Actions</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {sunAbout.portfolio && (
-                    <Button asChild size="sm" className="bg-[#e4a24f] text-[#17100a] hover:bg-[#f1b86b]">
+                    <Button asChild size="sm" className="solar-cta">
                       <a href={sunAbout.portfolio} target="_blank" rel="noopener noreferrer">
                         Portfolio
                       </a>
@@ -600,7 +765,7 @@ export function Hero() {
                     asChild
                     size="sm"
                     variant="outline"
-                    className="border-[#8db7ff88] bg-transparent text-[#d4e2ff] hover:bg-[#213965]"
+                    className="hud-button text-[#d4e2ff]"
                   >
                     <a href="mailto:Dev.jam0211@gmail.com">Contact</a>
                   </Button>
@@ -609,7 +774,7 @@ export function Hero() {
                     size="sm"
                     variant="outline"
                     onClick={() => setPaused((value) => !value)}
-                    className="border-[#f3d6a266] bg-transparent text-[#f3e2c2] hover:bg-[#332742]"
+                    className="hud-button text-[#f3e2c2]"
                   >
                     {paused ? "Resume" : "Pause"}
                   </Button>
@@ -629,7 +794,7 @@ export function Hero() {
                       asChild
                       size="sm"
                       variant="outline"
-                      className="h-8 border-[#8db7ff88] bg-transparent px-3 text-xs text-[#d4e2ff] hover:bg-[#213965]"
+                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff]"
                     >
                       <a href="mailto:Dev.jam0211@gmail.com">Contact</a>
                     </Button>
@@ -638,7 +803,7 @@ export function Hero() {
                       size="sm"
                       variant="outline"
                       onClick={() => setPaused((value) => !value)}
-                      className="h-8 border-[#f3d6a266] bg-transparent px-3 text-xs text-[#f3e2c2] hover:bg-[#332742]"
+                      className="hud-button h-8 px-3 text-xs text-[#f3e2c2]"
                     >
                       {paused ? "Resume" : "Pause"}
                     </Button>
