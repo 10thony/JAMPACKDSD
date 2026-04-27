@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>3D Glowing Circuit Human</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #030406;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      function showLaunchError(message) {
+        const el = document.createElement("div");
+        el.style.position = "fixed";
+        el.style.left = "12px";
+        el.style.bottom = "12px";
+        el.style.maxWidth = "min(92vw, 760px)";
+        el.style.padding = "10px 12px";
+        el.style.border = "1px solid rgba(255,80,80,0.5)";
+        el.style.background = "rgba(18,5,7,0.92)";
+        el.style.color = "#ffd7d7";
+        el.style.font = "13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+        el.style.whiteSpace = "pre-wrap";
+        el.style.zIndex = "99999";
+        el.textContent = message;
+        document.body.appendChild(el);
+      }
+
+      async function boot() {
+        const THREE = await import("/node_modules/three/build/three.module.js");
+
+        if (!window.WebGLRenderingContext) {
+          throw new Error("WebGL is not available in this browser.");
+        }
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x030406);
+
+      const camera = new THREE.PerspectiveCamera(
+        50,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 2.5, 24);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      document.body.appendChild(renderer.domElement);
+
+      const root = new THREE.Group();
+      scene.add(root);
+
+      const clock = new THREE.Clock();
+
+      const darkMaterial = new THREE.MeshStandardMaterial({
+        color: 0x11191c,
+        roughness: 0.45,
+        metalness: 0.35,
+      });
+
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x101719,
+        roughness: 0.35,
+        metalness: 0.5,
+        emissive: 0x061114,
+        emissiveIntensity: 0.35,
+      });
+
+      const redGlow = new THREE.MeshStandardMaterial({
+        color: 0xff1f1f,
+        emissive: 0xff1515,
+        emissiveIntensity: 2.4,
+        roughness: 0.2,
+      });
+
+      const greenGlow = new THREE.MeshStandardMaterial({
+        color: 0x66ffb2,
+        emissive: 0x2aff91,
+        emissiveIntensity: 2.5,
+        roughness: 0.2,
+      });
+
+      const yellowGlow = new THREE.MeshStandardMaterial({
+        color: 0xffd36a,
+        emissive: 0xffaa2a,
+        emissiveIntensity: 2.5,
+        roughness: 0.2,
+      });
+
+      const cyanGlow = new THREE.MeshStandardMaterial({
+        color: 0x88fff7,
+        emissive: 0x38fff2,
+        emissiveIntensity: 1.8,
+        roughness: 0.2,
+      });
+
+      scene.add(new THREE.AmbientLight(0x334044, 0.55));
+
+      const keyLight = new THREE.PointLight(0x7fffea, 2.5, 35);
+      keyLight.position.set(-8, 8, 10);
+      scene.add(keyLight);
+
+      const redLight = new THREE.PointLight(0xff2525, 2, 20);
+      redLight.position.set(4, 3, 8);
+      scene.add(redLight);
+
+      function addRoundedBox(x, y, z, sx, sy, sz, material) {
+        const geo = new THREE.BoxGeometry(sx, sy, sz, 4, 4, 4);
+        const mesh = new THREE.Mesh(geo, material);
+        mesh.position.set(x, y, z);
+        root.add(mesh);
+        return mesh;
+      }
+
+      function addSphere(x, y, z, radius, material) {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(radius, 24, 24),
+          material
+        );
+        mesh.position.set(x, y, z);
+        root.add(mesh);
+        return mesh;
+      }
+
+      function addCylinderBetween(a, b, radius, material) {
+        const direction = new THREE.Vector3().subVectors(b, a);
+        const length = direction.length();
+
+        const geometry = new THREE.CylinderGeometry(radius, radius, length, 18);
+        const mesh = new THREE.Mesh(geometry, material);
+
+        const midpoint = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+        mesh.position.copy(midpoint);
+
+        mesh.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          direction.clone().normalize()
+        );
+
+        root.add(mesh);
+        return mesh;
+      }
+
+      function addRing(radius, thickness, z, startAngle, endAngle) {
+        const curve = new THREE.Curve();
+        curve.getPoint = function (t) {
+          const angle = startAngle + (endAngle - startAngle) * t;
+          return new THREE.Vector3(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius,
+            z
+          );
+        };
+
+        const geo = new THREE.TubeGeometry(curve, 160, thickness, 12, false);
+        const mesh = new THREE.Mesh(geo, ringMaterial);
+        root.add(mesh);
+        return mesh;
+      }
+
+      const rings = [];
+      rings.push(addRing(8.4, 0.18, -0.15, -0.15, Math.PI * 1.65));
+      rings.push(addRing(6.9, 0.17, -0.1, Math.PI * 0.08, Math.PI * 1.87));
+      rings.push(addRing(5.4, 0.16, -0.05, Math.PI * 0.25, Math.PI * 2.05));
+      rings.push(addRing(3.9, 0.15, 0, Math.PI * 0.45, Math.PI * 2.22));
+
+      const bodyParts = [];
+
+      bodyParts.push(addSphere(0, 5.4, 0.25, 0.8, darkMaterial));
+      bodyParts.push(addRoundedBox(0, 3.55, 0.15, 1.65, 2.65, 0.55, darkMaterial));
+      bodyParts.push(addRoundedBox(0, 1.5, 0.12, 1.35, 1.75, 0.5, darkMaterial));
+
+      bodyParts.push(
+        addCylinderBetween(
+          new THREE.Vector3(-0.9, 4.35, 0.05),
+          new THREE.Vector3(-2.45, 2.45, 0.05),
+          0.32,
+          darkMaterial,
+        ),
+      );
+      bodyParts.push(
+        addCylinderBetween(
+          new THREE.Vector3(0.9, 4.35, 0.05),
+          new THREE.Vector3(2.45, 2.45, 0.05),
+          0.32,
+          darkMaterial,
+        ),
+      );
+      bodyParts.push(addSphere(-2.55, 2.25, 0.05, 0.38, darkMaterial));
+      bodyParts.push(addSphere(2.55, 2.25, 0.05, 0.38, darkMaterial));
+
+      bodyParts.push(
+        addCylinderBetween(
+          new THREE.Vector3(-0.55, 0.85, 0.05),
+          new THREE.Vector3(-0.9, -3.4, 0.05),
+          0.34,
+          darkMaterial,
+        ),
+      );
+      bodyParts.push(
+        addCylinderBetween(
+          new THREE.Vector3(0.55, 0.85, 0.05),
+          new THREE.Vector3(0.9, -3.4, 0.05),
+          0.34,
+          darkMaterial,
+        ),
+      );
+      bodyParts.push(addRoundedBox(-0.95, -3.95, 0.05, 0.95, 0.45, 0.45, darkMaterial));
+      bodyParts.push(addRoundedBox(0.95, -3.95, 0.05, 0.95, 0.45, 0.45, darkMaterial));
+
+      const nodes = [];
+
+      function addNode(x, y, z, r, material, pulseOffset) {
+        const node = addSphere(x, y, z, r, material);
+        node.userData.baseScale = node.scale.x;
+        node.userData.pulseOffset = pulseOffset || Math.random() * 10;
+        nodes.push(node);
+
+        const light = new THREE.PointLight(material.emissive || 0xffffff, 0.6, 3);
+        light.position.set(x, y, z + 0.4);
+        root.add(light);
+        node.userData.light = light;
+
+        return node;
+      }
+
+      // Body circuit nodes
+      [
+        [0, 5.65],
+        [-0.35, 4.55],
+        [0.45, 4.1],
+        [-0.25, 3.55],
+        [0.55, 3.25],
+        [-0.5, 2.8],
+        [0.2, 2.2],
+        [-0.35, 1.45],
+        [0.45, 0.85],
+        [-0.75, -0.55],
+        [0.75, -0.85],
+        [-0.95, -2.2],
+        [0.95, -2.35],
+      ].forEach(([x, y], i) => {
+        addNode(x, y, 0.55, 0.13, i % 4 === 0 ? cyanGlow : redGlow, i * 0.4);
+      });
+
+      // Random star-like points on rings
+      for (let i = 0; i < 95; i++) {
+        const radius = [3.9, 5.4, 6.9, 8.4][Math.floor(Math.random() * 4)];
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+
+        const material =
+          Math.random() > 0.82
+            ? greenGlow
+            : Math.random() > 0.72
+              ? yellowGlow
+              : redGlow;
+
+        addNode(x, y, 0.35 + Math.random() * 0.25, 0.055 + Math.random() * 0.06, material);
+      }
+
+      // Bigger visible nodes
+      addNode(-7.55, 5.75, 0.55, 0.22, greenGlow, 0);
+      addNode(-8.05, -4.9, 0.55, 0.2, yellowGlow, 1);
+      addNode(6.75, -3.7, 0.55, 0.22, yellowGlow, 2);
+      addNode(4.95, 5.2, 0.55, 0.18, greenGlow, 3);
+
+      const orbiters = [];
+
+      function createOrbiter(radius, speed, size, material, startAngle) {
+        const orb = addSphere(
+          Math.cos(startAngle) * radius,
+          Math.sin(startAngle) * radius,
+          0.85,
+          size,
+          material,
+        );
+
+        const light = new THREE.PointLight(material.emissive || 0xffffff, 1.6, 5);
+        root.add(light);
+
+        orb.userData = {
+          radius,
+          speed,
+          startAngle,
+          light,
+        };
+
+        orbiters.push(orb);
+        return orb;
+      }
+
+      createOrbiter(8.4, 0.22, 0.17, greenGlow, Math.PI * 0.85);
+      createOrbiter(6.9, -0.32, 0.14, redGlow, Math.PI * 0.15);
+      createOrbiter(5.4, 0.42, 0.12, yellowGlow, Math.PI * 1.4);
+      createOrbiter(3.9, -0.55, 0.1, cyanGlow, Math.PI * 0.55);
+
+      // Circuit lines on the torso
+      const circuitMaterial = new THREE.MeshStandardMaterial({
+        color: 0x223034,
+        emissive: 0x0b1518,
+        emissiveIntensity: 0.8,
+        roughness: 0.35,
+        metalness: 0.5,
+      });
+
+      const circuitSegments = [
+        [[0, 5.1, 0.7], [0, 4.45, 0.7]],
+        [[0, 4.45, 0.7], [-0.35, 4.0, 0.7]],
+        [[0, 4.45, 0.7], [0.45, 3.85, 0.7]],
+        [[-0.25, 3.55, 0.7], [-0.55, 2.85, 0.7]],
+        [[0.45, 3.25, 0.7], [0.15, 2.2, 0.7]],
+        [[0.15, 2.2, 0.7], [0.45, 0.85, 0.7]],
+        [[-0.35, 1.45, 0.7], [-0.75, -0.55, 0.7]],
+      ];
+
+      circuitSegments.forEach(([a, b]) => {
+        addCylinderBetween(
+          new THREE.Vector3(...a),
+          new THREE.Vector3(...b),
+          0.035,
+          circuitMaterial,
+        );
+      });
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const t = clock.getElapsedTime();
+
+        root.rotation.y = Math.sin(t * 0.28) * 0.22;
+        root.rotation.x = Math.sin(t * 0.17) * 0.08;
+        root.rotation.z = Math.sin(t * 0.13) * 0.03;
+
+        rings.forEach((ring, i) => {
+          ring.rotation.z = t * (0.025 + i * 0.008) * (i % 2 ? -1 : 1);
+          ring.material.emissiveIntensity = 0.25 + Math.sin(t * 1.4 + i) * 0.08;
+        });
+
+        nodes.forEach((node, i) => {
+          const pulse = 1 + Math.sin(t * 3.2 + node.userData.pulseOffset) * 0.35;
+          node.scale.setScalar(pulse);
+
+          if (node.userData.light) {
+            node.userData.light.intensity =
+              0.35 + Math.abs(Math.sin(t * 2.5 + i)) * 0.85;
+          }
+        });
+
+        orbiters.forEach((orb) => {
+          const data = orb.userData;
+          const angle = data.startAngle + t * data.speed;
+
+          orb.position.x = Math.cos(angle) * data.radius;
+          orb.position.y = Math.sin(angle) * data.radius;
+          orb.position.z = 0.9 + Math.sin(t * 2 + data.radius) * 0.25;
+
+          data.light.position.copy(orb.position);
+          data.light.position.z += 0.5;
+          data.light.intensity = 1.2 + Math.sin(t * 4 + data.radius) * 0.45;
+        });
+
+        keyLight.position.x = Math.sin(t * 0.7) * 8;
+        keyLight.position.y = 7 + Math.cos(t * 0.5) * 2;
+
+        redLight.position.x = Math.cos(t * 0.6) * 6;
+        redLight.position.y = Math.sin(t * 0.8) * 5;
+
+        camera.position.x = Math.sin(t * 0.2) * 1.2;
+        camera.position.y = 2.3 + Math.sin(t * 0.27) * 0.5;
+        camera.lookAt(0, 0.8, 0);
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      });
+      }
+
+      boot().catch((err) => {
+        console.error(err);
+        showLaunchError(
+          "Animation failed to start.\n\n" +
+            (err && err.message ? err.message : String(err)) +
+            "\n\nMake sure this is opened through a local server from project root:\n" +
+            "http://127.0.0.1:5500/mespace.html"
+        );
+      });
+    </script>
+  </body>
+</html>
