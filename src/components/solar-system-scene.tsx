@@ -1,5 +1,6 @@
-import { Suspense, useMemo, useRef, type MutableRefObject, type RefObject } from "react"
+import { Suspense, useLayoutEffect, useMemo, useRef, type MutableRefObject, type RefObject } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Html, OrbitControls, Stars, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
@@ -28,6 +29,11 @@ function makeCanvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D, s
   return texture
 }
 
+function setTextureAnisotropy(texture: THREE.CanvasTexture, isMobile: boolean) {
+  texture.anisotropy = isMobile ? 2 : 8
+  texture.needsUpdate = true
+}
+
 function drawNoise(ctx: CanvasRenderingContext2D, size: number, opacity = 0.18, step = 2) {
   const image = ctx.getImageData(0, 0, size, size)
   for (let y = 0; y < size; y += step) {
@@ -43,8 +49,14 @@ function drawNoise(ctx: CanvasRenderingContext2D, size: number, opacity = 0.18, 
   ctx.putImageData(image, 0, 0)
 }
 
-function makePlanetTexture(kind: TextureKind, color: THREE.ColorRepresentation, orbitIndex: number) {
-  return makeCanvasTexture(512, (ctx, size) => {
+function makePlanetTexture(
+  kind: TextureKind,
+  color: THREE.ColorRepresentation,
+  orbitIndex: number,
+  isMobile: boolean,
+) {
+  const resolution = isMobile ? 256 : 512
+  const texture = makeCanvasTexture(resolution, (ctx, size) => {
     const base = new THREE.Color(color)
     const dark = base.clone().offsetHSL(0, -0.08, -0.18).getStyle()
     const light = base.clone().offsetHSL(0.02, 0.08, 0.16).getStyle()
@@ -99,18 +111,22 @@ function makePlanetTexture(kind: TextureKind, color: THREE.ColorRepresentation, 
       ctx.globalCompositeOperation = "source-over"
     }
   })
+  setTextureAnisotropy(texture, isMobile)
+  return texture
 }
 
-function makeBumpTexture(orbitIndex: number) {
-  return makeCanvasTexture(256, (ctx, size) => {
+function makeBumpTexture(orbitIndex: number, isMobile: boolean) {
+  const resolution = isMobile ? 128 : 256
+  return makeCanvasTexture(resolution, (ctx, size) => {
     ctx.fillStyle = orbitIndex >= 4 ? "#8f8f8f" : "#777777"
     ctx.fillRect(0, 0, size, size)
     drawNoise(ctx, size, orbitIndex >= 4 ? 0.08 : 0.22, 1)
   })
 }
 
-function makeRingTexture(ringColor: string) {
-  return makeCanvasTexture(512, (ctx, size) => {
+function makeRingTexture(ringColor: string, isMobile: boolean) {
+  const resolution = isMobile ? 256 : 512
+  const texture = makeCanvasTexture(resolution, (ctx, size) => {
     const color = new THREE.Color(ringColor)
     const center = size / 2
     const max = size * 0.48
@@ -123,6 +139,8 @@ function makeRingTexture(ringColor: string) {
       ctx.stroke()
     }
   })
+  setTextureAnisotropy(texture, isMobile)
+  return texture
 }
 
 function disableMeshRaycast(mesh: THREE.Object3D) {
@@ -187,10 +205,10 @@ function planetTextureKind(orbitIndex: number): TextureKind {
   return "ice"
 }
 
-function OrbitGuide({ radius, selected }: { radius: number; selected: boolean }) {
+function OrbitGuide({ radius, selected, segments }: { radius: number; selected: boolean; segments: number }) {
   return (
     <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={-2} onUpdate={disableMeshRaycast}>
-      <ringGeometry args={[radius - 0.035, radius + 0.035, 192]} />
+      <ringGeometry args={[radius - 0.035, radius + 0.035, segments]} />
       <meshBasicMaterial
         color={selected ? "#f5d49a" : "#6f88b7"}
         transparent
@@ -203,10 +221,11 @@ function OrbitGuide({ radius, selected }: { radius: number; selected: boolean })
   )
 }
 
-function AsteroidBelt({ pausedRef }: { pausedRef: RefObject<boolean> }) {
+function AsteroidBelt({ pausedRef, isMobile }: { pausedRef: RefObject<boolean>; isMobile: boolean }) {
   const belt = useRef<THREE.InstancedMesh>(null)
   const dust = useRef<THREE.Group>(null)
-  const count = 180
+  const count = isMobile ? 90 : 180
+  const dustRingSegments = isMobile ? 120 : 220
   const matrices = useMemo(() => {
     const dummy = new THREE.Object3D()
     return Array.from({ length: count }, (_, i) => {
@@ -219,7 +238,7 @@ function AsteroidBelt({ pausedRef }: { pausedRef: RefObject<boolean> }) {
       dummy.updateMatrix()
       return dummy.matrix.clone()
     })
-  }, [])
+  }, [count])
 
   useFrame((_, delta) => {
     if (pausedRef.current) return
@@ -231,7 +250,7 @@ function AsteroidBelt({ pausedRef }: { pausedRef: RefObject<boolean> }) {
     <group rotation={ECLIPTIC_TILT}>
       <group ref={dust}>
         <mesh rotation={[Math.PI / 2, 0, 0]} onUpdate={disableMeshRaycast}>
-          <ringGeometry args={[32, 39, 220]} />
+          <ringGeometry args={[32, 39, dustRingSegments]} />
           <meshBasicMaterial
             color="#d8b98a"
             transparent
@@ -243,6 +262,7 @@ function AsteroidBelt({ pausedRef }: { pausedRef: RefObject<boolean> }) {
         </mesh>
       </group>
       <instancedMesh
+        key={count}
         ref={belt}
         args={[undefined, undefined, count]}
         onUpdate={(mesh) => {
@@ -276,10 +296,11 @@ function NebulaVeil() {
   )
 }
 
-function GradientStars() {
+function GradientStars({ isMobile }: { isMobile: boolean }) {
+  const starCount = isMobile ? 100 : 320
   const stars = useMemo(
     () =>
-      Array.from({ length: 320 }, (_, i) => {
+      Array.from({ length: starCount }, (_, i) => {
         // Fill a large scene volume so stars read across the entire canvas, not only near the center.
         const x = THREE.MathUtils.randFloatSpread(1200)
         const y = THREE.MathUtils.randFloatSpread(760)
@@ -294,14 +315,16 @@ function GradientStars() {
           color,
         }
       }),
-    [],
+    [starCount],
   )
+
+  const sphereSeg = isMobile ? 6 : 10
 
   return (
     <group>
       {stars.map((star) => (
         <mesh key={star.key} position={star.position} scale={star.scale} onUpdate={disableMeshRaycast}>
-          <sphereGeometry args={[1, 10, 10]} />
+          <sphereGeometry args={[1, sphereSeg, sphereSeg]} />
           <meshBasicMaterial color={star.color} transparent opacity={star.opacity} depthWrite={false} />
         </mesh>
       ))}
@@ -313,14 +336,17 @@ function PlanetSurfaceDetail({
   pr,
   orbitIndex,
   baseColor,
+  isMobile,
 }: {
   pr: number
   orbitIndex: number
   baseColor: THREE.ColorRepresentation
+  isMobile: boolean
 }) {
   const tint = useMemo(() => new THREE.Color(baseColor), [baseColor])
   const bright = useMemo(() => tint.clone().offsetHSL(0, 0.06, 0.1), [tint])
   const dark = useMemo(() => tint.clone().offsetHSL(0, -0.03, -0.16), [tint])
+  const s = (n: number) => (isMobile ? Math.max(8, (n * 0.55) | 0) : n)
 
   // Distinct planet signatures by orbit index (Mercury -> Neptune).
   switch (orbitIndex) {
@@ -328,11 +354,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} rotation={[0.8, 0.22, 0.1]}>
-            <torusGeometry args={[pr * 0.62, pr * 0.05, 6, 46]} />
+            <torusGeometry args={[pr * 0.62, pr * 0.05, 6, s(46)]} />
             <meshBasicMaterial color={dark} transparent opacity={0.24} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} position={[pr * 0.22, -pr * 0.08, pr * 0.42]}>
-            <sphereGeometry args={[pr * 0.18, 16, 16]} />
+            <sphereGeometry args={[pr * 0.18, s(16), s(16)]} />
             <meshBasicMaterial color="#b8afa6" transparent opacity={0.15} depthWrite={false} />
           </mesh>
         </>
@@ -341,11 +367,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} scale={1.018}>
-            <sphereGeometry args={[pr, 22, 22]} />
+            <sphereGeometry args={[pr, s(22), s(22)]} />
             <meshBasicMaterial color="#f1d5a8" transparent opacity={0.17} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.12, 0.03]}>
-            <torusGeometry args={[pr * 0.56, pr * 0.034, 8, 52]} />
+            <torusGeometry args={[pr * 0.56, pr * 0.034, 8, s(52)]} />
             <meshBasicMaterial color="#cfa781" transparent opacity={0.2} depthWrite={false} />
           </mesh>
         </>
@@ -354,11 +380,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.08, 0]}>
-            <torusGeometry args={[pr * 0.6, pr * 0.028, 8, 56]} />
+            <torusGeometry args={[pr * 0.6, pr * 0.028, 8, s(56)]} />
             <meshBasicMaterial color="#cfe7ff" transparent opacity={0.21} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} position={[pr * 0.28, pr * 0.14, pr * 0.44]} scale={[1, 0.8, 1]}>
-            <sphereGeometry args={[pr * 0.2, 16, 16]} />
+            <sphereGeometry args={[pr * 0.2, s(16), s(16)]} />
             <meshBasicMaterial color="#9fd6ff" transparent opacity={0.16} depthWrite={false} />
           </mesh>
         </>
@@ -367,11 +393,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.25, 0.04]}>
-            <torusGeometry args={[pr * 0.66, pr * 0.04, 8, 50]} />
+            <torusGeometry args={[pr * 0.66, pr * 0.04, 8, s(50)]} />
             <meshBasicMaterial color="#8f4634" transparent opacity={0.26} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} position={[-pr * 0.2, -pr * 0.16, pr * 0.3]}>
-            <sphereGeometry args={[pr * 0.15, 14, 14]} />
+            <sphereGeometry args={[pr * 0.15, s(14), s(14)]} />
             <meshBasicMaterial color="#d57d58" transparent opacity={0.17} depthWrite={false} />
           </mesh>
         </>
@@ -380,15 +406,15 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[pr * 0.72, pr * 0.046, 8, 64]} />
+            <torusGeometry args={[pr * 0.72, pr * 0.046, 8, s(64)]} />
             <meshBasicMaterial color={bright} transparent opacity={0.22} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.22, 0]}>
-            <torusGeometry args={[pr * 0.47, pr * 0.036, 8, 56]} />
+            <torusGeometry args={[pr * 0.47, pr * 0.036, 8, s(56)]} />
             <meshBasicMaterial color={dark} transparent opacity={0.2} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} position={[pr * 0.32, -pr * 0.1, pr * 0.48]} scale={[1, 0.7, 1]}>
-            <sphereGeometry args={[pr * 0.16, 14, 14]} />
+            <sphereGeometry args={[pr * 0.16, s(14), s(14)]} />
             <meshBasicMaterial color="#c07a5a" transparent opacity={0.26} depthWrite={false} />
           </mesh>
         </>
@@ -397,11 +423,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.04, 0]}>
-            <torusGeometry args={[pr * 0.68, pr * 0.034, 8, 58]} />
+            <torusGeometry args={[pr * 0.68, pr * 0.034, 8, s(58)]} />
             <meshBasicMaterial color="#f0dfc0" transparent opacity={0.2} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.26, 0]}>
-            <torusGeometry args={[pr * 0.43, pr * 0.026, 8, 48]} />
+            <torusGeometry args={[pr * 0.43, pr * 0.026, 8, s(48)]} />
             <meshBasicMaterial color="#b89a74" transparent opacity={0.17} depthWrite={false} />
           </mesh>
         </>
@@ -410,11 +436,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} scale={1.026}>
-            <sphereGeometry args={[pr, 20, 20]} />
+            <sphereGeometry args={[pr, s(20), s(20)]} />
             <meshBasicMaterial color="#c4f1f6" transparent opacity={0.12} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.2, 0]}>
-            <torusGeometry args={[pr * 0.55, pr * 0.024, 8, 52]} />
+            <torusGeometry args={[pr * 0.55, pr * 0.024, 8, s(52)]} />
             <meshBasicMaterial color="#7dbec6" transparent opacity={0.14} depthWrite={false} />
           </mesh>
         </>
@@ -423,11 +449,11 @@ function PlanetSurfaceDetail({
       return (
         <>
           <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0.2, 0]}>
-            <torusGeometry args={[pr * 0.64, pr * 0.03, 8, 58]} />
+            <torusGeometry args={[pr * 0.64, pr * 0.03, 8, s(58)]} />
             <meshBasicMaterial color="#7ea5e8" transparent opacity={0.2} depthWrite={false} />
           </mesh>
           <mesh onUpdate={disableMeshRaycast} position={[-pr * 0.25, -pr * 0.02, pr * 0.45]} scale={[1, 0.78, 1]}>
-            <sphereGeometry args={[pr * 0.17, 16, 16]} />
+            <sphereGeometry args={[pr * 0.17, s(16), s(16)]} />
             <meshBasicMaterial color="#2f4f9f" transparent opacity={0.26} depthWrite={false} />
           </mesh>
         </>
@@ -461,6 +487,7 @@ type SceneContentProps = {
   paused: boolean
   selectedId: string | null
   onSelect: (id: string) => void
+  isMobile: boolean
 }
 
 const SUN_TARGET = new THREE.Vector3(0, 0, 0)
@@ -479,17 +506,21 @@ function PlanetRings({
   pr,
   ringColor,
   pausedRef,
+  isMobile,
 }: {
   pr: number
   ringColor: string
   pausedRef: RefObject<boolean>
+  isMobile: boolean
 }) {
   const ringBelt = useRef<THREE.Group>(null)
   const ringFine = useRef<THREE.Group>(null)
   const ringDust = useRef<THREE.Group>(null)
   const ringShadow = useRef<THREE.Group>(null)
+  const ringSeg = isMobile ? 80 : 160
+  const ringSegInner = isMobile ? 64 : 128
 
-  const ringTexture = useMemo(() => makeRingTexture(ringColor), [ringColor])
+  const ringTexture = useMemo(() => makeRingTexture(ringColor, isMobile), [ringColor, isMobile])
   const rot = useMemo(() => [Math.PI / 2.35, 0.35, 0.2] as [number, number, number], [])
 
   useFrame((_, d) => {
@@ -504,7 +535,7 @@ function PlanetRings({
     <group rotation={rot}>
       <group ref={ringBelt}>
         <mesh onUpdate={disableMeshRaycast}>
-          <ringGeometry args={[pr * 1.42, pr * 2.28, 160]} />
+          <ringGeometry args={[pr * 1.42, pr * 2.28, ringSeg]} />
           <meshBasicMaterial
             map={ringTexture}
             color={ringColor}
@@ -518,7 +549,7 @@ function PlanetRings({
       </group>
       <group ref={ringShadow}>
         <mesh onUpdate={disableMeshRaycast}>
-          <ringGeometry args={[pr * 1.16, pr * 1.48, 128]} />
+          <ringGeometry args={[pr * 1.16, pr * 1.48, ringSegInner]} />
           <meshBasicMaterial
             color="#000000"
             transparent
@@ -530,7 +561,7 @@ function PlanetRings({
       </group>
       <group ref={ringFine}>
         <mesh onUpdate={disableMeshRaycast}>
-          <ringGeometry args={[pr * 2.36, pr * 2.42, 160]} />
+          <ringGeometry args={[pr * 2.36, pr * 2.42, ringSeg]} />
           <meshBasicMaterial
             color={ringColor}
             transparent
@@ -542,7 +573,7 @@ function PlanetRings({
       </group>
       <group ref={ringDust}>
         <mesh onUpdate={disableMeshRaycast}>
-          <ringGeometry args={[pr * 1.18, pr * 2.62, 160]} />
+          <ringGeometry args={[pr * 1.18, pr * 2.62, ringSeg]} />
           <meshBasicMaterial
             color={ringColor}
             transparent
@@ -560,13 +591,18 @@ function PlanetRings({
 function SunNode({
   pausedRef,
   onSelect,
+  isMobile,
 }: {
   pausedRef: RefObject<boolean>
   onSelect: () => void
+  isMobile: boolean
 }) {
   const vis = useRef<THREE.Group>(null)
   const particleHalo = useRef<THREE.Group>(null)
   const glowPulse = useRef(0)
+  const sunSeg = isMobile ? 24 : 36
+  const sunSegOuter = isMobile ? 20 : 28
+  const haloParticles = isMobile ? 14 : 28
   const gltf = useGLTF(HUMANOID_MODEL_URL)
   const humanoid = useMemo(() => {
     const root = gltf.scene.clone(true)
@@ -619,14 +655,14 @@ function SunNode({
         }}
         renderOrder={2}
       >
-        <sphereGeometry args={[SUN_R, 36, 36]} />
+        <sphereGeometry args={[SUN_R, sunSeg, sunSeg]} />
         <meshBasicMaterial transparent depthWrite={false} opacity={0} />
       </mesh>
       <group ref={vis}>
         <primitive object={humanoid} />
 
         <mesh onUpdate={disableMeshRaycast} renderOrder={0} scale={[1.5, 1.65, 1.5]}>
-          <sphereGeometry args={[SUN_R, 36, 36]} />
+          <sphereGeometry args={[SUN_R, sunSeg, sunSeg]} />
           <meshBasicMaterial
             color="#ff653f"
             transparent
@@ -637,7 +673,7 @@ function SunNode({
           />
         </mesh>
         <mesh onUpdate={disableMeshRaycast} renderOrder={0} scale={[1.95, 2.08, 1.95]}>
-          <sphereGeometry args={[SUN_R, 28, 28]} />
+          <sphereGeometry args={[SUN_R, sunSegOuter, sunSegOuter]} />
           <meshBasicMaterial
             color="#b145ff"
             transparent
@@ -649,13 +685,13 @@ function SunNode({
         </mesh>
 
         <group ref={particleHalo}>
-          {Array.from({ length: 28 }, (_, i) => {
-            const t = (i / 28) * Math.PI * 2
+          {Array.from({ length: haloParticles }, (_, i) => {
+            const t = (i / haloParticles) * Math.PI * 2
             const r = SUN_R * (1.05 + (i % 5) * 0.07)
             const y = Math.sin(i * 1.1) * 4.2
             return (
               <mesh key={`core-particle-${i}`} position={[Math.cos(t) * r, y, Math.sin(t) * r]} onUpdate={disableMeshRaycast}>
-                <sphereGeometry args={[0.19 + (i % 3) * 0.05, 8, 8]} />
+                <sphereGeometry args={[0.19 + (i % 3) * 0.05, isMobile ? 6 : 8, isMobile ? 6 : 8]} />
                 <meshBasicMaterial
                   color={i % 4 === 0 ? "#8ec9ff" : i % 2 === 0 ? "#ff6b49" : "#ffbb83"}
                   transparent
@@ -679,6 +715,7 @@ function PlanetNode({
   posById,
   selected,
   onSelect,
+  isMobile,
 }: {
   planet: SolarSystemPlanet
   timeMs: MutableRefObject<number>
@@ -686,10 +723,15 @@ function PlanetNode({
   posById: RefObject<Map<string, THREE.Vector3>>
   selected: boolean
   onSelect: (id: string) => void
+  isMobile: boolean
 }) {
   const group = useRef<THREE.Group>(null)
   const bodySpin = useRef<THREE.Group>(null)
   const pr = worldPlanetRadius(planet.size)
+  const bodySeg = isMobile ? 48 : 72
+  const atmoSeg = isMobile ? 16 : 24
+  const hitSeg = isMobile ? 18 : 28
+  const shellSeg = isMobile ? 28 : 40
   const R = worldOrbitRadius(planet.radius)
   const orbitSpeed = planet.speed * (120 / Math.max(planet.radius, 24))
   const hitR = pr * HIT_PAD
@@ -699,8 +741,11 @@ function PlanetNode({
   const ringColor = useMemo(() => realisticRingColor(orbitIndex), [orbitIndex])
   const detail = useMemo(() => planetVisualProfile(planet.radius, sceneBaseColor), [planet.radius, sceneBaseColor])
   const textureKind = useMemo(() => planetTextureKind(orbitIndex), [orbitIndex])
-  const planetTexture = useMemo(() => makePlanetTexture(textureKind, detail.color, orbitIndex), [textureKind, detail.color, orbitIndex])
-  const bumpTexture = useMemo(() => makeBumpTexture(orbitIndex), [orbitIndex])
+  const planetTexture = useMemo(
+    () => makePlanetTexture(textureKind, detail.color, orbitIndex, isMobile),
+    [textureKind, detail.color, orbitIndex, isMobile],
+  )
+  const bumpTexture = useMemo(() => makeBumpTexture(orbitIndex, isMobile), [orbitIndex, isMobile])
   const craterColor = useMemo(() => new THREE.Color(detail.color).offsetHSL(0, -0.03, -0.2), [detail.color])
   const highlightColor = useMemo(() => new THREE.Color(detail.color).offsetHSL(0, 0.08, 0.22), [detail.color])
   const inclination = useMemo(() => (orbitIndex % 2 === 0 ? 0.018 : -0.024) + orbitIndex * 0.002, [orbitIndex])
@@ -739,12 +784,12 @@ function PlanetNode({
         }}
         renderOrder={1}
       >
-        <sphereGeometry args={[hitR, 28, 28]} />
+        <sphereGeometry args={[hitR, hitSeg, hitSeg]} />
         <meshBasicMaterial transparent depthWrite={false} opacity={0} />
       </mesh>
       <group ref={bodySpin}>
         <mesh onUpdate={disableMeshRaycast} renderOrder={0}>
-          <sphereGeometry args={[pr, 72, 72]} />
+          <sphereGeometry args={[pr, bodySeg, bodySeg]} />
           <meshPhysicalMaterial
             map={planetTexture}
             bumpMap={bumpTexture}
@@ -762,7 +807,7 @@ function PlanetNode({
           />
         </mesh>
         <mesh onUpdate={disableMeshRaycast} scale={selected ? 1.18 : 1.1}>
-          <sphereGeometry args={[pr, 40, 40]} />
+          <sphereGeometry args={[pr, shellSeg, shellSeg]} />
           <meshBasicMaterial
             color={selected ? "#f8d797" : detail.emissive}
             transparent
@@ -773,20 +818,20 @@ function PlanetNode({
           />
         </mesh>
         <mesh onUpdate={disableMeshRaycast} position={[pr * 0.33, pr * 0.18, pr * 0.58]} scale={[1, 0.86, 1]}>
-          <sphereGeometry args={[pr * 0.28, 20, 20]} />
+          <sphereGeometry args={[pr * 0.28, isMobile ? 12 : 20, isMobile ? 12 : 20]} />
           <meshBasicMaterial color="#fff7df" transparent opacity={selected ? 0.2 : 0.12} depthWrite={false} />
         </mesh>
         <mesh onUpdate={disableMeshRaycast} rotation={[0.55, 0.35, 0.2]} scale={[1, 0.82, 1]}>
-          <torusGeometry args={[pr * 0.74, pr * 0.04, 6, 64]} />
+          <torusGeometry args={[pr * 0.74, pr * 0.04, 6, isMobile ? 32 : 64]} />
           <meshBasicMaterial color={highlightColor} transparent opacity={0.14} depthWrite={false} />
         </mesh>
         <mesh onUpdate={disableMeshRaycast} rotation={[0.2, -0.25, 0.15]}>
-          <torusGeometry args={[pr * 0.52, pr * 0.032, 6, 54]} />
+          <torusGeometry args={[pr * 0.52, pr * 0.032, 6, isMobile ? 28 : 54]} />
           <meshBasicMaterial color={craterColor} transparent opacity={0.17} depthWrite={false} />
         </mesh>
-        <PlanetSurfaceDetail pr={pr} orbitIndex={orbitIndex} baseColor={detail.color} />
+        <PlanetSurfaceDetail pr={pr} orbitIndex={orbitIndex} baseColor={detail.color} isMobile={isMobile} />
         <mesh onUpdate={disableMeshRaycast}>
-          <sphereGeometry args={[pr * detail.atmosphereScale, 24, 24]} />
+          <sphereGeometry args={[pr * detail.atmosphereScale, atmoSeg, atmoSeg]} />
           <meshStandardMaterial
             color={detail.color}
             emissive={detail.emissive}
@@ -800,7 +845,7 @@ function PlanetNode({
           />
         </mesh>
         <mesh onUpdate={disableMeshRaycast} scale={1.035}>
-          <sphereGeometry args={[pr, 24, 24]} />
+          <sphereGeometry args={[pr, atmoSeg, atmoSeg]} />
           <meshBasicMaterial
             color={highlightColor}
             transparent
@@ -810,11 +855,11 @@ function PlanetNode({
             blending={THREE.AdditiveBlending}
           />
         </mesh>
-        {ringColor ? <PlanetRings pr={pr} ringColor={ringColor} pausedRef={pausedRef} /> : null}
+        {ringColor ? <PlanetRings pr={pr} ringColor={ringColor} pausedRef={pausedRef} isMobile={isMobile} /> : null}
       </group>
       {selected && (
         <mesh onUpdate={disableMeshRaycast} rotation={[Math.PI / 2, 0, 0]} renderOrder={-1}>
-          <torusGeometry args={[pr * 2.95, 0.035, 4, 112]} />
+          <torusGeometry args={[pr * 2.95, 0.035, 4, isMobile ? 56 : 112]} />
           <meshBasicMaterial
             color="#f7d08d"
             transparent
@@ -824,9 +869,9 @@ function PlanetNode({
           />
         </mesh>
       )}
-      <Html center distanceFactor={38} style={{ pointerEvents: "none" }}>
+      <Html center distanceFactor={isMobile ? 44 : 38} style={{ pointerEvents: "none" }}>
         <span
-          className="block max-w-[10rem] whitespace-normal px-2 py-1 text-center font-[Sora,sans-serif] text-[9px] font-semibold uppercase tracking-[0.2em] text-[#f7e8c9]"
+          className={`block max-w-[10rem] whitespace-normal px-2 py-1 text-center font-[Sora,sans-serif] font-semibold uppercase tracking-[0.2em] text-[#f7e8c9] ${isMobile ? "text-[10px]" : "text-[9px]"}`}
           style={{ textShadow: "0 0 12px rgba(0,0,0,0.9)" }}
         >
           {planet.name}
@@ -916,12 +961,36 @@ function SelectionCameraSync({
   return null
 }
 
-function SceneContent({ planets, paused, selectedId, onSelect }: SceneContentProps) {
+function CameraRig({ isMobile }: { isMobile: boolean }) {
+  const { camera, size } = useThree()
+
+  useLayoutEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return
+    const portrait = size.height > size.width
+    if (isMobile) {
+      camera.fov = portrait ? 56 : 52
+      if (portrait) {
+        camera.position.set(0, 48, 115)
+      } else {
+        camera.position.set(0, 44, 102)
+      }
+    } else {
+      camera.fov = 50
+      camera.position.set(0, 40, 98)
+    }
+    camera.updateProjectionMatrix()
+  }, [isMobile, size.height, size.width, camera])
+
+  return null
+}
+
+function SceneContent({ planets, paused, selectedId, onSelect, isMobile }: SceneContentProps) {
   const timeMs = useRef(0)
   const pausedRef = useRef(paused)
   const posById = useRef(new Map<string, THREE.Vector3>())
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   pausedRef.current = paused
+  const orbitRingSegments = isMobile ? 72 : 192
 
   useFrame((_, delta) => {
     if (!pausedRef.current) timeMs.current += delta * 1000
@@ -929,8 +998,9 @@ function SceneContent({ planets, paused, selectedId, onSelect }: SceneContentPro
 
   return (
     <>
+      <CameraRig isMobile={isMobile} />
       <color attach="background" args={["#030510"]} />
-      <fog attach="fog" args={["#030510", 125, 580]} />
+      <fog attach="fog" args={["#030510", isMobile ? 110 : 125, isMobile ? 520 : 580]} />
 
       <ambientLight intensity={0.1} />
       <hemisphereLight args={["#8daeff", "#12060b", 0.24]} />
@@ -941,11 +1011,11 @@ function SceneContent({ planets, paused, selectedId, onSelect }: SceneContentPro
 
       <Suspense fallback={null}>
         <NebulaVeil />
-        <GradientStars />
+        <GradientStars isMobile={isMobile} />
         <Stars
-          radius={520}
-          depth={95}
-          count={6200}
+          radius={isMobile ? 480 : 520}
+          depth={isMobile ? 80 : 95}
+          count={isMobile ? 2200 : 6200}
           factor={2.5}
           saturation={0}
           fade
@@ -959,11 +1029,12 @@ function SceneContent({ planets, paused, selectedId, onSelect }: SceneContentPro
             key={`orbit-${planet.id}`}
             radius={worldOrbitRadius(planet.radius)}
             selected={selectedId === planet.id}
+            segments={orbitRingSegments}
           />
         ))}
       </group>
-      <AsteroidBelt pausedRef={pausedRef} />
-      <SunNode pausedRef={pausedRef} onSelect={() => onSelect(SUN_FOCUS_ID)} />
+      <AsteroidBelt pausedRef={pausedRef} isMobile={isMobile} />
+      <SunNode pausedRef={pausedRef} isMobile={isMobile} onSelect={() => onSelect(SUN_FOCUS_ID)} />
 
       {planets.map((planet) => (
         <PlanetNode
@@ -974,25 +1045,26 @@ function SceneContent({ planets, paused, selectedId, onSelect }: SceneContentPro
           posById={posById}
           selected={selectedId === planet.id}
           onSelect={onSelect}
+          isMobile={isMobile}
         />
       ))}
 
       <OrbitControls
         ref={controlsRef}
         makeDefault
-        enablePan
+        enablePan={!isMobile}
         enableZoom
         enableRotate
-        minDistance={20}
+        minDistance={isMobile ? 28 : 20}
         maxDistance={400}
         minPolarAngle={0.08}
         maxPolarAngle={Math.PI - 0.08}
         enableDamping
-        dampingFactor={0.06}
+        dampingFactor={isMobile ? 0.08 : 0.06}
         screenSpacePanning
-        zoomSpeed={0.85}
+        zoomSpeed={isMobile ? 1.05 : 0.85}
         panSpeed={0.65}
-        rotateSpeed={0.65}
+        rotateSpeed={isMobile ? 0.9 : 0.65}
         target={[0, 0, 0]}
       />
 
@@ -1001,22 +1073,30 @@ function SceneContent({ planets, paused, selectedId, onSelect }: SceneContentPro
   )
 }
 
-type SolarSystemCanvasProps = SceneContentProps
+type SolarSystemCanvasProps = Omit<SceneContentProps, "isMobile">
 
 export function SolarSystemCanvas({ planets, paused, selectedId, onSelect }: SolarSystemCanvasProps) {
+  const isMobile = useIsMobile()
+
   return (
     <Canvas
-      className="h-full w-full touch-none"
-      gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+      className="h-full w-full select-none touch-none"
+      gl={{ antialias: !isMobile, alpha: false, powerPreference: "high-performance" }}
       camera={{ position: [0, 40, 98], fov: 50, near: 0.1, far: 2000 }}
-      dpr={[1, 1.5]}
+      dpr={isMobile ? [1, 1.2] : [1, 1.5]}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 1.18
       }}
       onPointerMissed={() => onSelect(SUN_FOCUS_ID)}
     >
-      <SceneContent planets={planets} paused={paused} selectedId={selectedId} onSelect={onSelect} />
+      <SceneContent
+        planets={planets}
+        paused={paused}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        isMobile={isMobile}
+      />
     </Canvas>
   )
 }

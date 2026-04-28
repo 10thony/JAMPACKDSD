@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, Settings } from "lucide-react"
 import { SolarSystemCanvas, SUN_FOCUS_ID } from "@/components/solar-system-scene"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type ProjectRecord = {
   _id?: string
@@ -141,6 +142,7 @@ const fallbackPlanets: FallbackPlanet[] = [
 ]
 
 export function Hero() {
+  const isMobile = useIsMobile()
   const { isSignedIn, user } = useUser()
   const isAuthorized = user?.id === AUTHORIZED_USER_ID
   const projects = (useQuery(api.queries.getProjects) || []) as ProjectRecord[]
@@ -452,6 +454,17 @@ export function Hero() {
             opacity: 0.4;
             pointer-events: none;
           }
+          .scene-card.scene-card-transparent {
+            background: transparent;
+            border-color: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+          }
+          .scene-card.scene-card-transparent::before,
+          .scene-card.scene-card-transparent::after {
+            opacity: 0;
+            pointer-events: none;
+          }
           .scene-card-float {
             animation: panelFloat 8.4s ease-in-out infinite;
           }
@@ -497,11 +510,87 @@ export function Hero() {
         <div className="pointer-events-none absolute inset-0 z-10">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_8%,rgba(255,209,136,0.14),transparent_38%),radial-gradient(circle_at_87%_90%,rgba(111,160,255,0.14),transparent_36%),radial-gradient(circle_at_44%_76%,rgba(129,97,255,0.08),transparent_34%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:radial-gradient(circle_at_center,rgba(255,255,255,0.35)_0.6px,transparent_0.6px)] [background-size:3px_3px]" />
-          <p className="cosmic-body pointer-events-none absolute bottom-3 left-4 max-w-[72vw] px-3 py-2 text-[10px] leading-relaxed text-[#cfbea3] [text-shadow:0_0_18px_rgba(246,188,120,0.55)] md:bottom-8 md:left-8 md:max-w-xs md:text-sm">
-            <span className="text-[#f0cc8d]">Flight controls:</span> drag to orbit · scroll to zoom · right-drag to pan
+          <p
+            className={
+              isMobile && (selectedPlanet || selectedPlanetId === SUN_FOCUS_ID)
+                ? "cosmic-body pointer-events-none absolute left-4 top-24 z-[5] max-w-[72vw] px-3 py-2 text-[10px] leading-relaxed text-[#cfbea3] [text-shadow:0_0_18px_rgba(246,188,120,0.55)]"
+                : "cosmic-body pointer-events-none absolute bottom-3 left-4 z-[5] max-w-[72vw] px-3 py-2 text-[10px] leading-relaxed text-[#cfbea3] [text-shadow:0_0_18px_rgba(246,188,120,0.55)] md:bottom-8 md:left-8 md:max-w-xs md:text-sm"
+            }
+          >
+            <span className="text-[#f0cc8d]">Flight controls:</span>{" "}
+            {isMobile
+              ? "one finger to orbit · pinch to zoom"
+              : "drag to orbit · scroll to zoom · right-drag to pan"}
           </p>
 
-          {selectedPlanet && (
+          {selectedPlanet && isMobile && (
+            <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 flex max-h-[min(50vh,420px)] flex-col gap-2 overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <aside className="cosmic-body scene-card-float w-full shrink-0 p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)]">
+                <p className="cosmic-title text-[10px] uppercase tracking-[0.32em] text-[#efcc8f]">Selected Orbit</p>
+                <h2 className="cosmic-title mt-1 text-xl font-semibold leading-tight">{selectedPlanet.name}</h2>
+                <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-[#dfcdaf]">
+                  {selectedPlanet.description}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedPlanet.technologies.map((tech) => (
+                    <span
+                      key={`mobile-${tech}`}
+                      className="scene-chip rounded-md px-2 py-1 text-[10px] text-[#f7e9cf]"
+                    >
+                      {tech}
+                    </span>
+                  ))}
+                </div>
+              </aside>
+
+              <aside className="cosmic-body scene-card w-full shrink-0 rounded-2xl p-3 text-[#f7ebd5]">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Actions</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedPlanetLiveUrl ? (
+                    <Button asChild size="sm" className="solar-cta h-8 px-3 text-xs">
+                      <a href={selectedPlanetLiveUrl}>Launch</a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="solar-cta h-8 px-3 text-xs opacity-55" disabled>
+                      Launch
+                    </Button>
+                  )}
+                  {selectedPlanetGithubUrl ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff]"
+                    >
+                      <a href={selectedPlanetGithubUrl} target="_blank" rel="noopener noreferrer">
+                        Source
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff] opacity-55"
+                      disabled
+                    >
+                      Source
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPaused((value) => !value)}
+                    className="hud-button h-8 px-3 text-xs text-[#f3e2c2]"
+                  >
+                    {paused ? "Resume" : "Pause"}
+                  </Button>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {selectedPlanet && !isMobile && (
             <>
               <aside className="scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(72vw,370px)] p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:left-10 md:top-10 md:w-[min(100vw-2rem,370px)] md:p-5">
                 <p className="cosmic-title text-[10px] uppercase tracking-[0.32em] text-[#efcc8f]">Selected Orbit</p>
@@ -583,40 +672,140 @@ export function Hero() {
                   </Button>
                 </div>
               </aside>
+            </>
+          )}
 
-              <aside className="scene-card cosmic-body pointer-events-auto absolute bottom-4 right-4 left-4 rounded-2xl p-3 text-[#f7ebd5] md:hidden">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Actions</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedPlanetLiveUrl ? (
-                    <Button asChild size="sm" className="solar-cta h-8 px-3 text-xs">
-                      <a href={selectedPlanetLiveUrl}>Launch</a>
-                    </Button>
-                  ) : (
-                    <Button size="sm" className="solar-cta h-8 px-3 text-xs opacity-55" disabled>
-                      Launch
-                    </Button>
-                  )}
-                  {selectedPlanetGithubUrl ? (
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff]"
+          {selectedPlanetId === SUN_FOCUS_ID && isMobile && (
+            <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 flex max-h-[min(80vh,760px)] flex-col gap-2 overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <aside className="cosmic-body w-full min-w-0 rounded-2xl border border-transparent bg-transparent p-3 text-[#f7ebd5] shadow-none [text-shadow:0_0_16px_rgba(0,0,0,0.72)]">
+                <div className="relative z-[1] flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {experiencePanelExpanded && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setExperienceView((view) => (view === "detail" ? "list" : "detail"))
+                        }
+                        className="hud-button h-7 px-2 text-[10px] text-[#f2ddba]"
+                      >
+                        {experienceView === "detail" ? "List" : "Detail"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {experiencePanelExpanded && (
+                  <>
+                    <div
+                      className="scroll-orbit mt-2 max-h-[min(36vh,300px)] w-full overflow-y-auto rounded-md border border-transparent bg-[#0b1027] p-3 pr-2 shadow-[inset_0_1px_22px_rgba(0,0,0,0.28)]"
+                      onTouchStart={handleExperienceTouchStart}
+                      onTouchEnd={handleExperienceTouchEnd}
                     >
-                      <a href={selectedPlanetGithubUrl} target="_blank" rel="noopener noreferrer">
-                        Source
+                      {experienceView === "detail" ? (
+                        <>
+                          <p className="text-base font-semibold leading-snug text-[#f8ebd4]">
+                            {activeExperience?.title || "Role"}
+                          </p>
+                          <p className="mt-1 text-sm text-[#d0b690]">
+                            {activeExperience?.company || "Company"} - {activeExperience?.dates || "Dates"}
+                          </p>
+                          <div className="mt-3 space-y-3">
+                            {(activeExperience?.description || []).map((line, lineIndex) => (
+                              <p key={`${line}-${lineIndex}`} className="text-sm leading-relaxed text-[#dac8a8]">
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-1 space-y-2">
+                          {sunAbout.experiences.map((experience, index) => (
+                            <button
+                              key={`${experience.title || "role"}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                setExperienceIndex(index)
+                                setExperienceView("detail")
+                              }}
+                              className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                                index === experienceIndex
+                                  ? "border-[#f0c57e88] bg-[#2a3b70] text-[#f9e8c7]"
+                                  : "border-[#ffffff2b] bg-[#111a37] text-[#e8d2ac] hover:bg-[#22325f]"
+                              }`}
+                            >
+                              <p className="text-sm font-semibold">{experience.title || "Role"}</p>
+                              <p className="mt-1 text-xs text-[#cbb08a]">{experience.dates || "Dates"}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-[#cfb287]">
+                        Role {Math.min(experienceIndex + 1, totalExperiences)} of {totalExperiences}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => goExperience("prev")}
+                          className="hud-button h-8 px-2 text-xs text-[#f3dfbd]"
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => goExperience("next")}
+                          className="hud-button h-8 px-2 text-xs text-[#f3dfbd]"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-1 text-[10px] text-[#b89a71]">Swipe left/right to browse roles</p>
+                  </>
+                )}
+              </aside>
+
+              {aboutPanelExpanded && (
+                <aside className="scene-card-float cosmic-body w-full shrink-0 p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)]">
+                  <h2 className="cosmic-title text-[1.5rem] font-semibold leading-none">{sunAbout.name}</h2>
+                  <p className="mt-1 text-xs text-[#d8c39f]">{sunAbout.title}</p>
+                  <a
+                    href={`mailto:${sunAbout.email}`}
+                    className="mt-2 block text-xs text-[#f0d6ad] hover:text-[#ffe5c0]"
+                  >
+                    {sunAbout.email}
+                  </a>
+                </aside>
+              )}
+
+              <aside className="cosmic-body scene-card scene-card-transparent w-full shrink-0 rounded-2xl p-3 text-[#f7ebd5]">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Capabilities</p>
+                <p className="mt-1 line-clamp-2 text-[11px] text-[#e7d0a8]">
+                  {sunAbout.skills.slice(0, 3).join(" · ")}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                  {sunAbout.portfolio && (
+                    <Button asChild size="sm" className="solar-cta h-8 px-3 text-xs">
+                      <a href={sunAbout.portfolio} target="_blank" rel="noopener noreferrer">
+                        Portfolio
                       </a>
                     </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff] opacity-55"
-                      disabled
-                    >
-                      Source
-                    </Button>
                   )}
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="hud-button h-8 px-3 text-xs text-[#d4e2ff]"
+                  >
+                    <a href="mailto:Dev.jam0211@gmail.com">Contact</a>
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
@@ -628,10 +817,10 @@ export function Hero() {
                   </Button>
                 </div>
               </aside>
-            </>
+            </div>
           )}
 
-          {selectedPlanetId === SUN_FOCUS_ID && (
+          {selectedPlanetId === SUN_FOCUS_ID && !isMobile && (
             <>
               <aside className="scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(100vw-2rem,360px)] p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:left-10 md:top-10 md:p-5">
                 {aboutPanelExpanded && (
@@ -778,36 +967,6 @@ export function Hero() {
                   >
                     {paused ? "Resume" : "Pause"}
                   </Button>
-                </div>
-              </aside>
-
-              <aside className="scene-card cosmic-body pointer-events-auto absolute bottom-4 left-4 right-4 rounded-2xl p-3 text-[#f7ebd5] md:hidden">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#efcc8f]">Capabilities</p>
-                    <p className="mt-1 text-[11px] text-[#e7d0a8]">
-                      {sunAbout.skills.slice(0, 3).join(" · ")}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      className="hud-button h-8 px-3 text-xs text-[#d4e2ff]"
-                    >
-                      <a href="mailto:Dev.jam0211@gmail.com">Contact</a>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setPaused((value) => !value)}
-                      className="hud-button h-8 px-3 text-xs text-[#f3e2c2]"
-                    >
-                      {paused ? "Resume" : "Pause"}
-                    </Button>
-                  </div>
                 </div>
               </aside>
             </>
