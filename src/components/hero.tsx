@@ -958,7 +958,7 @@ export function Hero() {
                 {experiencePanelExpanded && (
                   <>
                 <div
-                  className="scroll-orbit mt-3 max-h-[360px] w-full overflow-y-auto rounded-none border border-transparent bg-[#0b1027] p-4 pr-3 shadow-[inset_0_1px_22px_rgba(0,0,0,0.28)] md:max-h-[620px]"
+                  className="scroll-orbit mt-3 w-full overflow-y-auto overscroll-contain rounded-none border border-transparent bg-[#0b1027] p-4 pr-3 shadow-[inset_0_1px_22px_rgba(0,0,0,0.28)] max-h-[max(180px,min(360px,calc(100vh-19rem)))] md:max-h-[max(220px,min(620px,calc(100vh-18rem)))]"
                   onTouchStart={handleExperienceTouchStart}
                   onTouchEnd={handleExperienceTouchEnd}
                 >
