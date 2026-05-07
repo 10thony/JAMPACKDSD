@@ -1,12 +1,41 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "convex/react"
 import { SignInButton, UserButton, useUser } from "@clerk/clerk-react"
 import { api } from "../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, Settings } from "lucide-react"
-import { SolarSystemCanvas, SUN_FOCUS_ID } from "@/components/solar-system-scene"
+import { SUN_FOCUS_ID } from "@/lib/solar-system-shared"
 import { useIsMobile } from "@/hooks/use-mobile"
+
+// Lazy-load the WebGL hero so the three.js + drei bundle (~hundreds of KB) is split
+// out of the main chunk and downloaded in parallel with the rest of the page.
+const SolarSystemCanvas = lazy(() =>
+  import("@/components/solar-system-scene").then((m) => ({ default: m.SolarSystemCanvas })),
+)
+
+function SolarSystemFallback() {
+  // Pure-CSS approximation of the dark observatory backdrop so the section never
+  // looks empty while the WebGL chunk + GLB stream in.
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-0 bg-[#030510]"
+      style={{
+        backgroundImage: [
+          "radial-gradient(circle at 22% 28%, rgba(255,209,136,0.18), transparent 42%)",
+          "radial-gradient(circle at 78% 64%, rgba(111,160,255,0.18), transparent 44%)",
+          "radial-gradient(circle at 50% 50%, rgba(244,194,111,0.08), transparent 60%)",
+          "radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.55), transparent 60%)",
+          "radial-gradient(1px 1px at 84% 32%, rgba(255,255,255,0.45), transparent 60%)",
+          "radial-gradient(1px 1px at 32% 78%, rgba(255,255,255,0.55), transparent 60%)",
+          "radial-gradient(1px 1px at 64% 88%, rgba(255,255,255,0.4), transparent 60%)",
+          "radial-gradient(1.5px 1.5px at 70% 12%, rgba(255,255,255,0.5), transparent 60%)",
+        ].join(", "),
+      }}
+    />
+  )
+}
 
 type ProjectRecord = {
   _id?: string
@@ -153,6 +182,7 @@ export function Hero() {
   const [experienceView, setExperienceView] = useState<"detail" | "list">("detail")
   const [aboutPanelExpanded, setAboutPanelExpanded] = useState(true)
   const [experiencePanelExpanded, setExperiencePanelExpanded] = useState(true)
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const experienceTouchStart = useRef<{ x: number; y: number } | null>(null)
 
   const planets = useMemo<Planet[]>(() => {
@@ -248,6 +278,9 @@ export function Hero() {
     if (selectedPlanetId === SUN_FOCUS_ID) {
       setExperienceView("detail")
     }
+    // Always collapse a previously-expanded description when the user picks a new orbit
+    // so they don't land on a giant wall of text on the next planet.
+    setDescriptionExpanded(false)
   }, [selectedPlanetId])
 
   const goExperience = (direction: "prev" | "next") => {
@@ -295,6 +328,10 @@ export function Hero() {
   const scenePaused = paused || shouldPauseForExperienceReading
   const selectedPlanetLiveUrl = selectedPlanet?.liveUrl?.trim()
   const selectedPlanetGithubUrl = selectedPlanet?.githubUrl?.trim()
+  // Heuristic: anything longer than ~5 lines of body text gets a Read more affordance
+  // so the floating card doesn't grow past the scene bounds.
+  const selectedPlanetDescription = selectedPlanet?.description ?? ""
+  const isLongDescription = selectedPlanetDescription.length > 280
 
   return (
     <section id="work" className="relative pt-16">
@@ -402,7 +439,6 @@ export function Hero() {
       </div>
       <div className="observatory-shell relative h-[calc(100vh-4rem)] w-full overflow-hidden border-y border-[#d7b07933] bg-[#030510] text-[#f4eedf]">
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Sora:wght@300;400;500;600&display=swap');
           .cosmic-title { font-family: "Cormorant Garamond", serif; letter-spacing: 0.06em; }
           .cosmic-body { font-family: "Sora", sans-serif; letter-spacing: 0.015em; }
           .observatory-shell::before {
@@ -499,12 +535,14 @@ export function Hero() {
         `}</style>
 
         <div className="absolute inset-0 z-0">
-          <SolarSystemCanvas
-            planets={scenePlanets}
-            paused={scenePaused}
-            selectedId={selectedPlanetId}
-            onSelect={setSelectedPlanetId}
-          />
+          <Suspense fallback={<SolarSystemFallback />}>
+            <SolarSystemCanvas
+              planets={scenePlanets}
+              paused={scenePaused}
+              selectedId={selectedPlanetId}
+              onSelect={setSelectedPlanetId}
+            />
+          </Suspense>
         </div>
 
         <div className="pointer-events-none absolute inset-0 z-10">
@@ -528,9 +566,37 @@ export function Hero() {
               <aside className="cosmic-body scene-card-float w-full shrink-0 p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)]">
                 <p className="cosmic-title text-[10px] uppercase tracking-[0.32em] text-[#efcc8f]">Selected Orbit</p>
                 <h2 className="cosmic-title mt-1 text-xl font-semibold leading-tight">{selectedPlanet.name}</h2>
-                <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-[#dfcdaf]">
+                <p
+                  className={
+                    descriptionExpanded
+                      ? "mt-1 text-xs leading-relaxed text-[#dfcdaf]"
+                      : "mt-1 line-clamp-3 text-xs leading-relaxed text-[#dfcdaf]"
+                  }
+                >
                   {selectedPlanet.description}
                 </p>
+                {isLongDescription && (
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionExpanded((value) => !value)}
+                    aria-expanded={descriptionExpanded}
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#efcc8f] transition-colors hover:text-[#f7d6a5]"
+                  >
+                    {descriptionExpanded ? "Show less" : "Read more"}
+                    {descriptionExpanded ? (
+                      <ChevronUp className="h-3 w-3" aria-hidden />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" aria-hidden />
+                    )}
+                  </button>
+                )}
+                {selectedPlanetLiveUrl && (
+                  <Button asChild size="sm" className="solar-cta mt-3 h-8 px-3 text-xs">
+                    <a href={selectedPlanetLiveUrl} target="_blank" rel="noopener noreferrer">
+                      Launch Project
+                    </a>
+                  </Button>
+                )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedPlanet.technologies.map((tech) => (
                     <span
@@ -592,12 +658,48 @@ export function Hero() {
 
           {selectedPlanet && !isMobile && (
             <>
-              <aside className="scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 w-[min(72vw,370px)] p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:left-10 md:top-10 md:w-[min(100vw-2rem,370px)] md:p-5">
+              <aside className="scene-card-float cosmic-body pointer-events-auto absolute left-4 top-4 flex max-h-[min(68vh,520px)] w-[min(72vw,370px)] flex-col p-3 text-[#f7ebd5] [text-shadow:0_0_16px_rgba(0,0,0,0.72)] md:left-10 md:top-10 md:w-[min(100vw-2rem,370px)] md:p-5">
                 <p className="cosmic-title text-[10px] uppercase tracking-[0.32em] text-[#efcc8f]">Selected Orbit</p>
                 <h2 className="cosmic-title mt-2 text-2xl font-semibold leading-none md:text-[2.05rem]">{selectedPlanet.name}</h2>
-                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#dfcdaf] md:mt-3 md:line-clamp-none md:text-sm">
-                  {selectedPlanet.description}
-                </p>
+                <div
+                  className={
+                    descriptionExpanded
+                      ? "scroll-orbit mt-2 min-h-0 flex-1 overflow-y-auto pr-2 md:mt-3"
+                      : "mt-2 md:mt-3"
+                  }
+                >
+                  <p
+                    className={
+                      descriptionExpanded
+                        ? "text-xs leading-relaxed text-[#dfcdaf] md:text-sm"
+                        : "line-clamp-5 text-xs leading-relaxed text-[#dfcdaf] md:text-sm"
+                    }
+                  >
+                    {selectedPlanet.description}
+                  </p>
+                </div>
+                {isLongDescription && (
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionExpanded((value) => !value)}
+                    aria-expanded={descriptionExpanded}
+                    className="mt-2 inline-flex items-center gap-1 self-start text-[10px] font-semibold uppercase tracking-[0.2em] text-[#efcc8f] transition-colors hover:text-[#f7d6a5]"
+                  >
+                    {descriptionExpanded ? "Show less" : "Read more"}
+                    {descriptionExpanded ? (
+                      <ChevronUp className="h-3 w-3" aria-hidden />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" aria-hidden />
+                    )}
+                  </button>
+                )}
+                {selectedPlanetLiveUrl && (
+                  <Button asChild size="sm" className="solar-cta mt-4 self-start">
+                    <a href={selectedPlanetLiveUrl} target="_blank" rel="noopener noreferrer">
+                      Launch Project
+                    </a>
+                  </Button>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2 md:hidden">
                   {selectedPlanet.technologies.map((tech) => (
                     <span

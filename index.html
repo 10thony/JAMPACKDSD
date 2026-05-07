@@ -20,7 +20,21 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="J.A.M Packed SD" />
     <meta name="twitter:description" content="Professional web development and design services. Crafting digital experiences with precision and care." />
-    
+
+    <!--
+      Start streaming the 5MB humanoid GLB before the JS bundle even parses, so it's
+      already in cache by the time the WebGL scene needs it.
+    -->
+    <link rel="preload" href="/humanoid_from_blend.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous" fetchpriority="low" />
+
+    <!-- Hero typography preconnects so font fetch races with the JS bundle. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Sora:wght@300;400;500;600&display=swap"
+    />
+
     <style>
       /* Scope all static styles to only the static-content div */
       .static-content {
@@ -386,15 +400,27 @@
     <script type="module" src="/src/main.tsx"></script>
     
     <script>
-      // Hide static content once React app is mounted
+      // Hide static content as soon as React mounts, even if mounting happens
+      // after DOMContentLoaded due to auth/network work or lazy-loaded chunks.
       document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-          const staticContent = document.getElementById('static-content');
-          const root = document.getElementById('root');
-          if (staticContent && root && root.children.length > 0) {
+        const staticContent = document.getElementById('static-content');
+        const root = document.getElementById('root');
+        if (!staticContent || !root) return;
+
+        const hideStaticContent = function() {
+          if (root.children.length > 0) {
             staticContent.style.display = 'none';
+            return true;
           }
-        }, 100);
+          return false;
+        };
+
+        if (hideStaticContent()) return;
+
+        const observer = new MutationObserver(function() {
+          if (hideStaticContent()) observer.disconnect();
+        });
+        observer.observe(root, { childList: true });
       });
     </script>
   </body>

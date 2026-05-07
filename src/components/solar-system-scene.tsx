@@ -1,17 +1,32 @@
-import { Suspense, useLayoutEffect, useMemo, useRef, type MutableRefObject, type RefObject } from "react"
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Html, OrbitControls, Stars, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
+import { HUMANOID_GLB_URL, SUN_FOCUS_ID as SHARED_SUN_FOCUS_ID } from "@/lib/solar-system-shared"
 
 const SUN_R = 9
 const ECLIPTIC_TILT: [number, number, number] = [0.03, 0, -0.08]
-const HUMANOID_MODEL_URL = new URL("../../humanoid_from_blend.glb", import.meta.url).href
+// Served from /public so it gets a stable URL we can preload in index.html.
+const HUMANOID_MODEL_URL = HUMANOID_GLB_URL
 const HUMANOID_SILHOUETTE = "#f4f5f7"
 const HUMANOID_BASE_Y_ROT = 0
 
 type TextureKind = "rocky" | "cloud" | "jovian" | "ice" | "sun" | "ring"
+
+// Module-level cache keyed by serialized inputs. Procedural textures are deterministic
+// per (kind, color, orbitIndex, isMobile), so reusing them across remounts and HMR
+// avoids re-running expensive canvas pixel loops on the main thread.
+const textureCache = new Map<string, THREE.CanvasTexture>()
+
+function getCachedTexture(key: string, factory: () => THREE.CanvasTexture) {
+  const cached = textureCache.get(key)
+  if (cached) return cached
+  const created = factory()
+  textureCache.set(key, created)
+  return created
+}
 
 function makeCanvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D, size: number) => void) {
   const canvas = document.createElement("canvas")
@@ -50,6 +65,17 @@ function drawNoise(ctx: CanvasRenderingContext2D, size: number, opacity = 0.18, 
 }
 
 function makePlanetTexture(
+  kind: TextureKind,
+  color: THREE.ColorRepresentation,
+  orbitIndex: number,
+  isMobile: boolean,
+) {
+  const colorKey = new THREE.Color(color).getHexString()
+  const cacheKey = `planet:${kind}:${colorKey}:${orbitIndex}:${isMobile ? 1 : 0}`
+  return getCachedTexture(cacheKey, () => buildPlanetTexture(kind, color, orbitIndex, isMobile))
+}
+
+function buildPlanetTexture(
   kind: TextureKind,
   color: THREE.ColorRepresentation,
   orbitIndex: number,
@@ -116,15 +142,23 @@ function makePlanetTexture(
 }
 
 function makeBumpTexture(orbitIndex: number, isMobile: boolean) {
-  const resolution = isMobile ? 128 : 256
-  return makeCanvasTexture(resolution, (ctx, size) => {
-    ctx.fillStyle = orbitIndex >= 4 ? "#8f8f8f" : "#777777"
-    ctx.fillRect(0, 0, size, size)
-    drawNoise(ctx, size, orbitIndex >= 4 ? 0.08 : 0.22, 1)
+  const cacheKey = `bump:${orbitIndex}:${isMobile ? 1 : 0}`
+  return getCachedTexture(cacheKey, () => {
+    const resolution = isMobile ? 128 : 256
+    return makeCanvasTexture(resolution, (ctx, size) => {
+      ctx.fillStyle = orbitIndex >= 4 ? "#8f8f8f" : "#777777"
+      ctx.fillRect(0, 0, size, size)
+      drawNoise(ctx, size, orbitIndex >= 4 ? 0.08 : 0.22, 1)
+    })
   })
 }
 
 function makeRingTexture(ringColor: string, isMobile: boolean) {
+  const cacheKey = `ring:${ringColor}:${isMobile ? 1 : 0}`
+  return getCachedTexture(cacheKey, () => buildRingTexture(ringColor, isMobile))
+}
+
+function buildRingTexture(ringColor: string, isMobile: boolean) {
   const resolution = isMobile ? 256 : 512
   const texture = makeCanvasTexture(resolution, (ctx, size) => {
     const color = new THREE.Color(ringColor)
@@ -462,7 +496,7 @@ function PlanetSurfaceDetail({
 }
 
 
-export const SUN_FOCUS_ID = "__solar_sun__"
+export const SUN_FOCUS_ID = SHARED_SUN_FOCUS_ID
 
 const FOCUS_ZOOM_SEC = 0.55
 const FOCUS_ZOOM_OUT_DIST = 50
@@ -984,6 +1018,53 @@ function CameraRig({ isMobile }: { isMobile: boolean }) {
   return null
 }
 
+function SunPlaceholder({ isMobile }: { isMobile: boolean }) {
+  // Renders while the 5MB humanoid GLB streams in; same silhouette colors so the
+  // visual transition is unobtrusive.
+  const seg = isMobile ? 24 : 36
+  return (
+    <group>
+      <mesh onUpdate={disableMeshRaycast} renderOrder={0}>
+        <sphereGeometry args={[SUN_R * 0.95, seg, seg]} />
+        <meshBasicMaterial color="#f4f5f7" transparent opacity={0.85} depthWrite={false} />
+      </mesh>
+      <mesh onUpdate={disableMeshRaycast} renderOrder={0} scale={[1.5, 1.65, 1.5]}>
+        <sphereGeometry args={[SUN_R, seg, seg]} />
+        <meshBasicMaterial color="#ff653f" transparent opacity={0.08} depthWrite={false} blending={THREE.AdditiveBlending} />
+      </mesh>
+    </group>
+  )
+}
+
+function useDeferredMount(delay = 0) {
+  // Defers heavy decorative groups so the planets/sun paint on the first frame and
+  // the user has something to interact with before the secondary props arrive.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const flush = () => {
+      if (!cancelled) setReady(true)
+    }
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (typeof win.requestIdleCallback === "function") {
+      const id = win.requestIdleCallback(flush, { timeout: 600 + delay })
+      return () => {
+        cancelled = true
+        if (typeof win.cancelIdleCallback === "function") win.cancelIdleCallback(id)
+      }
+    }
+    const timeoutId = window.setTimeout(flush, 200 + delay)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [delay])
+  return ready
+}
+
 function SceneContent({ planets, paused, selectedId, onSelect, isMobile }: SceneContentProps) {
   const timeMs = useRef(0)
   const pausedRef = useRef(paused)
@@ -991,6 +1072,7 @@ function SceneContent({ planets, paused, selectedId, onSelect, isMobile }: Scene
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   pausedRef.current = paused
   const orbitRingSegments = isMobile ? 72 : 192
+  const decorReady = useDeferredMount()
 
   useFrame((_, delta) => {
     if (!pausedRef.current) timeMs.current += delta * 1000
@@ -1009,19 +1091,21 @@ function SceneContent({ planets, paused, selectedId, onSelect, isMobile }: Scene
       <directionalLight position={[70, 85, 45]} intensity={0.62} color="#b8cfff" />
       <directionalLight position={[-90, -30, -60]} intensity={0.18} color="#6548ff" />
 
-      <Suspense fallback={null}>
-        <NebulaVeil />
-        <GradientStars isMobile={isMobile} />
-        <Stars
-          radius={isMobile ? 480 : 520}
-          depth={isMobile ? 80 : 95}
-          count={isMobile ? 2200 : 6200}
-          factor={2.5}
-          saturation={0}
-          fade
-          speed={0.08}
-        />
-      </Suspense>
+      <NebulaVeil />
+      {decorReady && (
+        <Suspense fallback={null}>
+          <GradientStars isMobile={isMobile} />
+          <Stars
+            radius={isMobile ? 480 : 520}
+            depth={isMobile ? 80 : 95}
+            count={isMobile ? 2200 : 6200}
+            factor={2.5}
+            saturation={0}
+            fade
+            speed={0.08}
+          />
+        </Suspense>
+      )}
 
       <group rotation={ECLIPTIC_TILT}>
         {planets.map((planet) => (
@@ -1033,8 +1117,11 @@ function SceneContent({ planets, paused, selectedId, onSelect, isMobile }: Scene
           />
         ))}
       </group>
-      <AsteroidBelt pausedRef={pausedRef} isMobile={isMobile} />
-      <SunNode pausedRef={pausedRef} isMobile={isMobile} onSelect={() => onSelect(SUN_FOCUS_ID)} />
+      {decorReady && <AsteroidBelt pausedRef={pausedRef} isMobile={isMobile} />}
+      {/* Isolating SunNode so the 5MB humanoid GLB doesn't block the rest of the scene. */}
+      <Suspense fallback={<SunPlaceholder isMobile={isMobile} />}>
+        <SunNode pausedRef={pausedRef} isMobile={isMobile} onSelect={() => onSelect(SUN_FOCUS_ID)} />
+      </Suspense>
 
       {planets.map((planet) => (
         <PlanetNode
