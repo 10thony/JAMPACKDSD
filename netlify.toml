@@ -16,7 +16,8 @@
   status = 200
 
 [build.environment]
-  NODE_VERSION = "20"
+  # pnpm 11.x requires Node >= 22.13 (uses built-in node:sqlite).
+  NODE_VERSION = "22"
   # Pin pnpm to match local dev (keep in sync with packageManager in package.json).
   PNPM_VERSION = "11.1.1"
   # VITE_* keys are intentionally compiled into the public bundle; skip secrets scan there.
