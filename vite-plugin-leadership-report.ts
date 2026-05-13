@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
 import { ENGINEERING_REPORT_SHARE_TOKEN } from './src/lib/engineering-report-share-token'
@@ -15,7 +16,11 @@ export function leadershipReportStaticRoute(): Plugin {
     `/leadership-summary/${ENGINEERING_REPORT_SHARE_TOKEN}/`,
   ])
 
-  const serveReport: Connect.NextHandleFunction = (req, res, next) => {
+  const serveReport = (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: (err?: unknown) => void,
+  ) => {
     const pathname = req.url?.split('?')[0] ?? ''
     if (!urlPaths.has(pathname)) {
       next()
