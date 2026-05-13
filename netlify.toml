@@ -1,19 +1,24 @@
 [build]
-  # Build command for production
-  command = "bun run build"
-  # Output directory for the build
+  # Install + build with pnpm. Netlify auto-detects pnpm from pnpm-lock.yaml,
+  # but we pin the install command so a stray bun.lock or yarn.lock can't change it.
+  command = "pnpm install --frozen-lockfile && pnpm run build"
   publish = "dist"
-  
-# Redirects for client-side routing
+
+# Trailing slash so hosts serve .../<token>/index.html instead of SPA index.html.
+[[redirects]]
+  from = "/leadership-summary/b187e405636e846418070d0b7dbd09a39d4d8f311771379bda441518b4987fac"
+  to = "/leadership-summary/b187e405636e846418070d0b7dbd09a39d4d8f311771379bda441518b4987fac/"
+  status = 301
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Environment variables (these will need to be set in Netlify dashboard)
 [build.environment]
   NODE_VERSION = "20"
-  # Exclude build output from secrets scanning since VITE_ variables are compiled into the bundle
-  # These are intentionally public frontend keys that must be in the client-side code
+  # Pin pnpm to match local dev (keep in sync with packageManager in package.json).
+  PNPM_VERSION = "11.1.1"
+  # VITE_* keys are intentionally compiled into the public bundle; skip secrets scan there.
   SECRETS_SCAN_OMIT_PATHS = "dist/**"
 

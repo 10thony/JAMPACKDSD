@@ -4,6 +4,7 @@ import { ProjectManager } from "@/components/project-manager"
 import { ProjectQuoteManager } from "@/components/project-quote-manager"
 import { QuoteSubmissionsManager } from "@/components/quote-submissions-manager"
 import { SnakeGameSettings } from "@/components/snake-game-settings"
+import { LeadershipSummaryLinkSettings } from "@/components/leadership-summary-link-settings"
 import { Link, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
@@ -51,6 +52,9 @@ export default function Admin() {
           </div>
           <ProjectManager />
           <ProjectQuoteManager />
+          <div className="lg:col-span-2">
+            <LeadershipSummaryLinkSettings />
+          </div>
           <SnakeGameSettings />
         </div>
       </div>

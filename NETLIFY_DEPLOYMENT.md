@@ -23,9 +23,10 @@ The static content automatically hides once the React app is mounted.
 
 ### 3. Build Configuration
 
-- Build command: `bun run build`
+- Build command: `pnpm install --frozen-lockfile && pnpm run build`
 - Publish directory: `dist`
 - Redirects configured for SPA routing
+- `PNPM_VERSION` pinned in `netlify.toml` to match local dev
 
 ### 4. Environment Variables
 
@@ -81,7 +82,7 @@ These are server-side only and set in Convex dashboard:
 
 4. Deploy to production:
    ```bash
-   bun run build
+   pnpm run build
    netlify deploy --prod
    ```
 
@@ -114,8 +115,8 @@ To update the hardcoded content in `index.html`:
 To test the production build locally:
 
 ```bash
-bun run build
-bun run preview
+pnpm run build
+pnpm run preview
 ```
 
 Visit `http://localhost:4173` to see the production build.
@@ -133,5 +134,5 @@ If deployment fails:
 1. Check build logs in Netlify dashboard
 2. Verify environment variables are set correctly
 3. Ensure `netlify.toml` is in included in your repository
-4. Check that `bun run build` completes successfully locally
+4. Check that `pnpm run build` completes successfully locally
 

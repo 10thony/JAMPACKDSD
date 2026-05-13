@@ -1,0 +1,6 @@
+# pnpm 11+ asks for explicit approval before running install scripts.
+# Each entry below is a trusted upstream package that legitimately needs a build step.
+allowBuilds:
+  '@clerk/shared': true
+  esbuild: true
+  msgpackr-extract: true

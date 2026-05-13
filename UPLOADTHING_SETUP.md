@@ -56,7 +56,7 @@ The image uploader in this project:
 After adding the environment variables, restart your development server:
 
 ```bash
-bun run dev
+pnpm run dev
 ```
 
 ## Testing
